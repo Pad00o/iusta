@@ -1,34 +1,49 @@
 
 
-## LegalAgent v1.0 — Agente IA per Infortunistica Stradale
+## Piano: Sidebar con navigazione + Storico Analisi + Settings
 
-### Panoramica
-App web con interfaccia chat dove gli avvocati caricano documenti (PDF, immagini) relativi a sinistri stradali e ricevono un report strutturato con analisi legale completa. Accesso libero, senza login.
+### Struttura
 
-### Pagine e Layout
+L'app passa da pagina singola a layout con sidebar ispirata all'immagine di riferimento (stile SinthAutomation). Tre sezioni navigabili:
 
-**Pagina principale — Chat + Upload**
-- Header con logo "LegalAgent v1.0" e sottotitolo "Analisi Infortunistica Stradale"
-- Area di upload file drag & drop (PDF, JPG, PNG) con preview dei file caricati
-- Chat con l'agente AI: l'utente carica i documenti, l'agente analizza e genera il report strutturato
-- Risposte in streaming con Markdown renderizzato (tabelle, grassetto, sezioni con emoji)
-- Pulsanti "Copia testo" e "Scarica PDF" su ogni risposta dell'agente
+1. **Analisi** — la chat attuale con il bot (pagina principale)
+2. **Storico** — lista di tutti i casi analizzati, organizzabili in cartelle, riapribili con la chat originale
+3. **Settings** — pagina impostazioni (placeholder iniziale)
 
-### Funzionalità Core
+### Modifiche tecniche
 
-1. **Upload documenti multipli** — drag & drop o click, supporto PDF/JPG/PNG, preview con nome file e dimensione
-2. **Chat con AI** — invio messaggi + file allegati, risposte in streaming con rendering Markdown
-3. **Prompt di sistema legale** — il workflow completo (estrazione dati, cronistoria, audit tecnico, cross-check, sintesi giuridica, anonimizzazione) come system prompt nell'edge function
-4. **Export report** — bottone per copiare il testo Markdown e bottone per generare/scaricare PDF formattato
-5. **Nuova analisi** — bottone per resettare la chat e iniziare un nuovo caso
+**1. Layout con Sidebar (`src/components/AppSidebar.tsx` + `src/components/AppLayout.tsx`)**
+- Sidebar con logo LegalAgent in alto, sezione "Navigazione" con 3 voci: Analisi, Storico, Settings
+- Icone coerenti (MessageSquare, FolderClock, Settings)
+- Stile pulito, sfondo bianco, voce attiva evidenziata in blu/viola come nel riferimento
+- Layout wrapper con SidebarProvider che avvolge tutte le pagine
 
-### Backend (Lovable Cloud)
+**2. Gestione casi in localStorage (`src/lib/case-storage.ts`)**
+- Ogni caso ha: id, titolo (auto-generato dal primo messaggio), messaggi, data creazione, cartella (opzionale)
+- Funzioni: salvaCaso, caricaCaso, listaCasi, eliminaCaso, creaCCartella, spostaCasoInCartella
+- Il caso viene salvato automaticamente dopo ogni risposta dell'agente
+- Il caso attivo viene tracciato con un ID in stato React
 
-- Edge function `chat` che riceve messaggi + file codificati, chiama Lovable AI Gateway con il system prompt legale, restituisce streaming SSE
-- Edge function `generate-pdf` che riceve il Markdown del report e genera un PDF formattato scaricabile
+**3. Pagina Analisi (`src/pages/Index.tsx`)**
+- Refactoring per supportare caricamento di un caso esistente da localStorage
+- Quando si apre un caso dallo storico, la chat si popola con i messaggi salvati
+- Bottone "Nuova Analisi" crea un nuovo caso
 
-### Design
-- Tema chiaro professionale, palette sobria (blu scuro/grigio)
-- Font leggibile, layout pulito stile "tool per professionisti"
-- Responsive per uso anche su tablet
+**4. Pagina Storico (`src/pages/Storico.tsx`)**
+- Lista di tutti i casi con titolo, data, anteprima primo messaggio
+- Sistema cartelle: cartella "Tutti" di default + cartelle personalizzate creabili dall'utente
+- Possibilità di spostare casi nelle cartelle via dropdown
+- Click su un caso → naviga a `/` con quel caso caricato
+- Eliminazione caso con conferma
+
+**5. Pagina Settings (`src/pages/Settings.tsx`)**
+- Placeholder con sezioni future (tema, export, info agente)
+
+**6. Routing (`src/App.tsx`)**
+- Aggiunta rotte `/storico` e `/settings`
+- Layout wrapper con sidebar su tutte le rotte
+
+### File coinvolti
+- Nuovo: `src/components/AppSidebar.tsx`, `src/components/AppLayout.tsx`, `src/lib/case-storage.ts`, `src/pages/Storico.tsx`, `src/pages/Settings.tsx`
+- Modificati: `src/App.tsx`, `src/pages/Index.tsx`
 
