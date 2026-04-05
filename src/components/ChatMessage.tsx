@@ -33,13 +33,15 @@ export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
         }
       );
       if (!resp.ok) throw new Error("PDF generation failed");
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `LegalAgent_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const html = await resp.text();
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
       toast({ title: "PDF scaricato con successo" });
     } catch {
       toast({ title: "Errore nella generazione del PDF", variant: "destructive" });
