@@ -67,6 +67,9 @@ export function saveCase(caseData: { id?: string; messages: Message[]; folder?: 
     createdAt: now,
     updatedAt: now,
     folder: caseData.folder,
+    titoloPratica: caseData.titoloPratica,
+    numeroPratica: caseData.numeroPratica,
+    note: caseData.note,
   };
   cases.unshift(newCase);
   localStorage.setItem(CASES_KEY, JSON.stringify(cases));
