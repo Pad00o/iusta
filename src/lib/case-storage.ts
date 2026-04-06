@@ -7,6 +7,9 @@ export interface Case {
   createdAt: string;
   updatedAt: string;
   folder?: string;
+  titoloPratica?: string;
+  numeroPratica?: string;
+  note?: string;
 }
 
 const CASES_KEY = "legalagent_cases";
