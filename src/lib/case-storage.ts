@@ -38,7 +38,7 @@ export function getCase(id: string): Case | undefined {
   return getAllCases().find((c) => c.id === id);
 }
 
-export function saveCase(caseData: { id?: string; messages: Message[]; folder?: string }): Case {
+export function saveCase(caseData: { id?: string; messages: Message[]; folder?: string; titoloPratica?: string; numeroPratica?: string; note?: string }): Case {
   const cases = getAllCases();
   const now = new Date().toISOString();
 
