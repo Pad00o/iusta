@@ -17,6 +17,7 @@ import {
 const navItems = [
   { title: "Analisi", url: "/", icon: MessageSquare },
   { title: "Storico", url: "/storico", icon: FolderClock },
+  { title: "Modelli", url: "/modelli", icon: FileText },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
