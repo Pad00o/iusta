@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Storico from "./pages/Storico.tsx";
 import Settings from "./pages/Settings.tsx";
+import Modelli from "./pages/Modelli.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
