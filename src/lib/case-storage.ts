@@ -51,6 +51,9 @@ export function saveCase(caseData: { id?: string; messages: Message[]; folder?: 
         title: generateTitle(caseData.messages),
         updatedAt: now,
         folder: caseData.folder ?? cases[idx].folder,
+        titoloPratica: caseData.titoloPratica ?? cases[idx].titoloPratica,
+        numeroPratica: caseData.numeroPratica ?? cases[idx].numeroPratica,
+        note: caseData.note ?? cases[idx].note,
       };
       localStorage.setItem(CASES_KEY, JSON.stringify(cases));
       return cases[idx];
