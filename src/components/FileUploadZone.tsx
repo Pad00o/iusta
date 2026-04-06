@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { Upload, X, FileText, Image } from "lucide-react";
+import { Upload, X, FileText, Image, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FileAttachment } from "@/lib/chat-stream";
 
@@ -51,18 +51,20 @@ export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors"
+        className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
       >
-        <Upload className="mx-auto h-6 w-6 text-muted-foreground mb-1" />
-        <p className="text-sm text-muted-foreground">
-          Trascina qui i file o <span className="text-primary font-medium">clicca per caricare</span>
+        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+          <Upload className="h-6 w-6 text-primary" />
+        </div>
+        <p className="text-sm font-medium text-foreground">
+          Trascina qui i file o <span className="text-primary">seleziona file</span>
         </p>
-        <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max 20MB</p>
+        <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max 20MB per file</p>
         <input
           ref={inputRef}
           type="file"
@@ -74,21 +76,44 @@ export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
       </div>
 
       {files.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {files.map((file, i) => (
-            <div key={i} className="flex items-center gap-2 bg-accent rounded-md px-3 py-1.5 text-sm">
-              {file.type === "application/pdf" ? (
-                <FileText className="h-4 w-4 text-primary" />
-              ) : (
-                <Image className="h-4 w-4 text-primary" />
-              )}
-              <span className="max-w-[150px] truncate">{file.name}</span>
-              <span className="text-muted-foreground text-xs">{formatSize(file.size)}</span>
-              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(i)}>
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground">
+            File caricati ({files.length})
+          </h3>
+          <div className="space-y-1.5">
+            {files.map((file, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between bg-accent/50 rounded-lg px-3 py-2"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {file.type === "application/pdf" ? (
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                  ) : (
+                    <Image className="h-4 w-4 text-primary flex-shrink-0" />
+                  )}
+                  <span className="text-sm truncate">{file.name}</span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    {formatSize(file.size)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(i);
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

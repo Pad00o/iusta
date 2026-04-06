@@ -1,23 +1,39 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Send, RotateCcw, Scale } from "lucide-react";
+import { Send, RotateCcw, Scale, Play, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileUploadZone } from "@/components/FileUploadZone";
-import { ChatMessage } from "@/components/ChatMessage";
+import { AnalysisStepper } from "@/components/AnalysisStepper";
+import { AnalysisSettings, type AnalysisConfig } from "@/components/AnalysisSettings";
+import { CaseInfoForm, type CaseInfo } from "@/components/CaseInfoForm";
+import { ReportView } from "@/components/ReportView";
 import { streamChat, type Message, type FileAttachment } from "@/lib/chat-stream";
 import { saveCase, getCase } from "@/lib/case-storage";
 import { toast } from "@/hooks/use-toast";
 
+type Phase = "upload" | "processing" | "report";
+
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [caseId, setCaseId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [phase, setPhase] = useState<Phase>("upload");
+
+  const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>({
+    mode: "completa",
+    detail: "standard",
+    ocrAdvanced: false,
+    anonymize: true,
+  });
+
+  const [caseInfo, setCaseInfo] = useState<CaseInfo>({
+    titoloPratica: "",
+    numeroPratica: "",
+    note: "",
+  });
 
   // Load case from URL param
   useEffect(() => {
@@ -27,47 +43,98 @@ const Index = () => {
       if (existing) {
         setMessages(existing.messages);
         setCaseId(id);
+        setCaseInfo({
+          titoloPratica: existing.titoloPratica || "",
+          numeroPratica: existing.numeroPratica || "",
+          note: existing.note || "",
+        });
+        setPhase("report");
       }
-      // Clean URL
       setSearchParams({}, { replace: true });
     }
   }, []);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  const currentStep = phase === "upload" ? 1 : phase === "processing" ? 3 : 4;
 
-  // Auto-save after each assistant message completes
   const saveCurrentCase = (msgs: Message[]) => {
     if (msgs.length === 0) return;
-    const saved = saveCase({ id: caseId || undefined, messages: msgs });
+    const saved = saveCase({
+      id: caseId || undefined,
+      messages: msgs,
+      titoloPratica: caseInfo.titoloPratica,
+      numeroPratica: caseInfo.numeroPratica,
+      note: caseInfo.note,
+    });
     if (!caseId) setCaseId(saved.id);
   };
 
-  const handleSend = async () => {
-    const trimmed = input.trim();
-    if (!trimmed && files.length === 0) return;
-    if (isLoading) return;
+  const handleStartAnalysis = async () => {
+    if (files.length === 0) {
+      toast({ title: "Carica almeno un documento per avviare l'analisi", variant: "destructive" });
+      return;
+    }
 
-    const userContent = files.length > 0
-      ? `${trimmed}\n\n[File allegati: ${files.map((f) => f.name).join(", ")}]`
-      : trimmed;
+    setPhase("processing");
+    setIsLoading(true);
 
+    const configText = [
+      `Modalità: ${analysisConfig.mode}`,
+      `Dettaglio: ${analysisConfig.detail}`,
+      analysisConfig.ocrAdvanced ? "OCR avanzato attivo" : "",
+      analysisConfig.anonymize ? "Anonimizzazione attiva" : "",
+      caseInfo.titoloPratica ? `Titolo pratica: ${caseInfo.titoloPratica}` : "",
+      caseInfo.numeroPratica ? `Numero pratica: ${caseInfo.numeroPratica}` : "",
+      caseInfo.note ? `Note: ${caseInfo.note}` : "",
+    ].filter(Boolean).join("\n");
+
+    const userContent = `Analizza i seguenti documenti del sinistro.\n\n${configText}\n\n[File allegati: ${files.map((f) => f.name).join(", ")}]`;
     const userMsg: Message = { role: "user", content: userContent };
-    const currentFiles = [...files];
+    const newMessages = [userMsg];
+    setMessages(newMessages);
+
+    let assistantSoFar = "";
+
+    await streamChat({
+      messages: newMessages,
+      files: files.length > 0 ? files : undefined,
+      onDelta: (chunk) => {
+        assistantSoFar += chunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant") {
+            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+          }
+          return [...prev, { role: "assistant", content: assistantSoFar }];
+        });
+        if (phase !== "report") setPhase("report");
+      },
+      onDone: () => {
+        setIsLoading(false);
+        setPhase("report");
+        setMessages((prev) => {
+          saveCurrentCase(prev);
+          return prev;
+        });
+      },
+      onError: (err) => {
+        toast({ title: err, variant: "destructive" });
+        setIsLoading(false);
+        setPhase("upload");
+      },
+    });
+  };
+
+  const handleFollowUp = async (text: string) => {
+    if (isLoading) return;
+    const userMsg: Message = { role: "user", content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    setInput("");
-    setFiles([]);
     setIsLoading(true);
 
     let assistantSoFar = "";
 
     await streamChat({
       messages: newMessages,
-      files: currentFiles.length > 0 ? currentFiles : undefined,
       onDelta: (chunk) => {
         assistantSoFar += chunk;
         setMessages((prev) => {
@@ -80,7 +147,6 @@ const Index = () => {
       },
       onDone: () => {
         setIsLoading(false);
-        // Save after stream completes
         setMessages((prev) => {
           saveCurrentCase(prev);
           return prev;
@@ -93,100 +159,117 @@ const Index = () => {
     });
   };
 
+  const handleExportPdf = async () => {
+    const reportMsg = messages.find((m) => m.role === "assistant");
+    if (!reportMsg) return;
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ markdown: reportMsg.content }),
+        }
+      );
+      if (!resp.ok) throw new Error();
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${caseInfo.titoloPratica || "report-analisi"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Errore nel download del PDF", variant: "destructive" });
+    }
+  };
+
   const handleReset = () => {
     setMessages([]);
-    setInput("");
     setFiles([]);
     setIsLoading(false);
     setCaseId(null);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    setPhase("upload");
+    setCaseInfo({ titoloPratica: "", numeroPratica: "", note: "" });
   };
 
   const lastMessage = messages[messages.length - 1];
   const isStreaming = isLoading && lastMessage?.role === "assistant";
 
+  // Report phase
+  if (phase === "report" || (phase === "processing" && messages.length > 0)) {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
+          <AnalysisStepper currentStep={currentStep} />
+          <Button variant="outline" size="sm" onClick={handleReset}>
+            <RotateCcw className="h-4 w-4 mr-1" /> Nuova Analisi
+          </Button>
+        </div>
+        <ReportView
+          messages={messages}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          titoloPratica={caseInfo.titoloPratica}
+          numeroPratica={caseInfo.numeroPratica}
+          onSendFollowUp={handleFollowUp}
+          onExportPdf={handleExportPdf}
+        />
+      </div>
+    );
+  }
+
+  // Upload phase
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      {/* Chat area */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full" ref={scrollRef}>
-          <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-            {messages.length === 0 && (
-              <div className="text-center py-20 space-y-4">
-                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <Scale className="h-8 w-8 text-primary" />
-                </div>
-                <h2 className="text-xl font-semibold text-foreground">
-                  Benvenuto in LegalAgent
-                </h2>
-                <p className="text-muted-foreground max-w-md mx-auto text-sm">
-                  Carica i documenti del sinistro (verbali, CID, referti, foto) e ricevi un'analisi
-                  legale strutturata con cronistoria, audit tecnico e sintesi giuridica.
-                </p>
-                <Button variant="outline" size="sm" onClick={handleReset} className="mt-2">
-                  <RotateCcw className="h-4 w-4 mr-1" /> Nuova Analisi
-                </Button>
-              </div>
-            )}
-
-            {messages.map((msg, i) => (
-              <ChatMessage
-                key={i}
-                message={msg}
-                isStreaming={isStreaming && i === messages.length - 1}
-              />
-            ))}
-
-            {isLoading && !isStreaming && (
-              <div className="flex gap-3">
-                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <Scale className="h-4 w-4 text-primary-foreground animate-pulse" />
-                </div>
-                <div className="bg-card border border-border rounded-lg px-4 py-3">
-                  <div className="flex gap-1">
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.15s]" />
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.3s]" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+      <div className="border-b border-border bg-card px-4 py-2 flex-shrink-0">
+        <AnalysisStepper currentStep={currentStep} />
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-border bg-card px-4 py-4 flex-shrink-0">
-        <div className="max-w-4xl mx-auto space-y-3">
-          <div className="flex items-center justify-between">
-            <FileUploadZone files={files} onFilesChange={setFiles} />
-            {messages.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleReset}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Nuova Analisi
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Descrivi il sinistro o chiedi un'analisi dei documenti caricati..."
-              className="min-h-[44px] max-h-[120px] resize-none"
-              disabled={isLoading}
-            />
-            <Button onClick={handleSend} disabled={isLoading || (!input.trim() && files.length === 0)} className="h-auto">
-              <Send className="h-4 w-4" />
-            </Button>
+      <ScrollArea className="flex-1">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Upload zone */}
+              <div>
+                <h2 className="text-lg font-semibold text-foreground mb-3">
+                  Carica documenti
+                </h2>
+                <FileUploadZone files={files} onFilesChange={setFiles} />
+              </div>
+
+              {/* Case info */}
+              <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
+
+              {/* Start button */}
+              <div className="flex items-center gap-4">
+                <Button
+                  size="lg"
+                  onClick={handleStartAnalysis}
+                  disabled={files.length === 0 || isLoading}
+                  className="px-8"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Avvia analisi
+                </Button>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Tempo stimato: ~2-4 min</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right sidebar */}
+            <div className="space-y-4">
+              <AnalysisSettings config={analysisConfig} onChange={setAnalysisConfig} />
+            </div>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 };

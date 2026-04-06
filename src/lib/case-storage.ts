@@ -7,6 +7,9 @@ export interface Case {
   createdAt: string;
   updatedAt: string;
   folder?: string;
+  titoloPratica?: string;
+  numeroPratica?: string;
+  note?: string;
 }
 
 const CASES_KEY = "legalagent_cases";
@@ -35,7 +38,7 @@ export function getCase(id: string): Case | undefined {
   return getAllCases().find((c) => c.id === id);
 }
 
-export function saveCase(caseData: { id?: string; messages: Message[]; folder?: string }): Case {
+export function saveCase(caseData: { id?: string; messages: Message[]; folder?: string; titoloPratica?: string; numeroPratica?: string; note?: string }): Case {
   const cases = getAllCases();
   const now = new Date().toISOString();
 
@@ -48,6 +51,9 @@ export function saveCase(caseData: { id?: string; messages: Message[]; folder?: 
         title: generateTitle(caseData.messages),
         updatedAt: now,
         folder: caseData.folder ?? cases[idx].folder,
+        titoloPratica: caseData.titoloPratica ?? cases[idx].titoloPratica,
+        numeroPratica: caseData.numeroPratica ?? cases[idx].numeroPratica,
+        note: caseData.note ?? cases[idx].note,
       };
       localStorage.setItem(CASES_KEY, JSON.stringify(cases));
       return cases[idx];
@@ -61,6 +67,9 @@ export function saveCase(caseData: { id?: string; messages: Message[]; folder?: 
     createdAt: now,
     updatedAt: now,
     folder: caseData.folder,
+    titoloPratica: caseData.titoloPratica,
+    numeroPratica: caseData.numeroPratica,
+    note: caseData.note,
   };
   cases.unshift(newCase);
   localStorage.setItem(CASES_KEY, JSON.stringify(cases));

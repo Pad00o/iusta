@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Storico from "./pages/Storico.tsx";
 import Settings from "./pages/Settings.tsx";
+import Modelli from "./pages/Modelli.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Index />} />
             <Route path="/storico" element={<Storico />} />
+            <Route path="/modelli" element={<Modelli />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
