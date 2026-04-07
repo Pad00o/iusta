@@ -14,7 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cases: {
+        Row: {
+          created_at: string
+          folder: string | null
+          id: string
+          messages: Json
+          note: string | null
+          numero_pratica: string | null
+          title: string
+          titolo_pratica: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          folder?: string | null
+          id?: string
+          messages?: Json
+          note?: string | null
+          numero_pratica?: string | null
+          title?: string
+          titolo_pratica?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          folder?: string | null
+          id?: string
+          messages?: Json
+          note?: string | null
+          numero_pratica?: string | null
+          title?: string
+          titolo_pratica?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
