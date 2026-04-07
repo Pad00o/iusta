@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/ChatMessage";
-import { Send, Download, FileDown, Scale } from "lucide-react";
+import { Send, Download, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle } from "lucide-react";
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -19,11 +19,14 @@ interface ReportViewProps {
 }
 
 const sectionAnchors = [
-  { id: "scheda-sinistro", label: "Scheda Sinistro", emoji: "📋" },
-  { id: "cronistoria", label: "Cronistoria", emoji: "🕒" },
-  { id: "analisi-critica", label: "Analisi Tecnica", emoji: "⚠️" },
-  { id: "violazioni", label: "Violazioni CdS", emoji: "⚖️" },
-  { id: "svolgimento", label: "Svolgimento Fatto", emoji: "📝" },
+  { id: "scheda-sinistro", label: "Scheda Sinistro", icon: FileText, color: "text-blue-500" },
+  { id: "cronistoria", label: "Cronistoria", icon: Clock, color: "text-indigo-500" },
+  { id: "analisi-critica", label: "Analisi Tecnica", icon: Search, color: "text-cyan-500" },
+  { id: "contraddizioni", label: "Contraddizioni", icon: AlertTriangle, color: "text-amber-500" },
+  { id: "violazioni", label: "Violazioni CdS", icon: Shield, color: "text-red-500" },
+  { id: "responsabilita", label: "Responsabilità", icon: Scale, color: "text-purple-500" },
+  { id: "svolgimento", label: "Svolgimento Fatto", icon: BookOpen, color: "text-emerald-500" },
+  { id: "dati-mancanti", label: "Dati Mancanti", icon: AlertCircle, color: "text-rose-500" },
 ];
 
 export function ReportView({
@@ -58,28 +61,35 @@ export function ReportView({
     }
   };
 
-  // Find the first assistant message (the main report)
   const reportMessage = messages.find((m) => m.role === "assistant");
   const followUpMessages = messages.slice(reportMessage ? messages.indexOf(reportMessage) + 1 : messages.length);
 
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left index */}
-      <div className="hidden lg:flex w-56 flex-shrink-0 border-r border-border bg-card flex-col p-4">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Indice Report
-        </h3>
-        <nav className="space-y-1">
+      <div className="hidden lg:flex w-60 flex-shrink-0 border-r border-border bg-card flex-col p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <Scale className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+              Indice Report
+            </h3>
+            <p className="text-[10px] text-muted-foreground">Navigazione sezioni</p>
+          </div>
+        </div>
+        <nav className="space-y-0.5">
           {sectionAnchors.map((s) => (
             <button
               key={s.id}
               onClick={() => {
                 document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full text-left px-2 py-1.5 rounded-md hover:bg-accent transition-colors"
+              className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-foreground w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors"
             >
-              <span>{s.emoji}</span>
-              <span>{s.label}</span>
+              <s.icon className={`h-4 w-4 ${s.color} flex-shrink-0`} />
+              <span className="truncate">{s.label}</span>
             </button>
           ))}
         </nav>
@@ -89,57 +99,91 @@ export function ReportView({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Report header */}
         <div className="border-b border-border bg-card px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {titoloPratica || "Report Analisi"}
-            </h2>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              {numeroPratica && <span>Pratica: {numeroPratica}</span>}
-              <span>{new Date().toLocaleDateString("it-IT")}</span>
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+              <Scale className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground">
+                  {titoloPratica || "Report Analisi"}
+                </h2>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary rounded-full uppercase tracking-wider">
+                  Report di Analisi
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                {numeroPratica && <span>Pratica: {numeroPratica}</span>}
+                <span>{new Date().toLocaleDateString("it-IT")}</span>
+              </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onExportPdf}>
-              <Download className="h-4 w-4 mr-1" />
-              Scarica PDF
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={onExportPdf} className="gap-1.5">
+            <Download className="h-4 w-4" />
+            Scarica PDF
+          </Button>
         </div>
 
         {/* Report body */}
         <ScrollArea className="flex-1" ref={scrollRef}>
           <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-            {/* Main report */}
             {reportMessage && (
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
                     h3: ({ children, ...props }) => {
-                      const text = String(children);
+                      const text = String(children).toUpperCase();
                       let id = "";
-                      if (text.includes("SCHEDA")) id = "scheda-sinistro";
-                      else if (text.includes("CRONISTORIA")) id = "cronistoria";
-                      else if (text.includes("ANALISI") || text.includes("CONTRADDIZIONI")) id = "analisi-critica";
-                      else if (text.includes("VIOLAZIONI")) id = "violazioni";
-                      else if (text.includes("SVOLGIMENTO")) id = "svolgimento";
+                      let borderColor = "border-l-primary";
+                      let Icon = FileText;
+                      let iconColor = "text-primary";
+
+                      if (text.includes("SCHEDA")) { id = "scheda-sinistro"; borderColor = "border-l-blue-500"; Icon = FileText; iconColor = "text-blue-500"; }
+                      else if (text.includes("CRONISTORIA")) { id = "cronistoria"; borderColor = "border-l-indigo-500"; Icon = Clock; iconColor = "text-indigo-500"; }
+                      else if (text.includes("ANALISI") || text.includes("TECNICA")) { id = "analisi-critica"; borderColor = "border-l-cyan-500"; Icon = Search; iconColor = "text-cyan-500"; }
+                      else if (text.includes("CONTRADDIZIONI") || text.includes("CRITICI")) { id = "contraddizioni"; borderColor = "border-l-amber-500"; Icon = AlertTriangle; iconColor = "text-amber-500"; }
+                      else if (text.includes("VIOLAZIONI")) { id = "violazioni"; borderColor = "border-l-red-500"; Icon = Shield; iconColor = "text-red-500"; }
+                      else if (text.includes("RESPONSABILIT")) { id = "responsabilita"; borderColor = "border-l-purple-500"; Icon = Scale; iconColor = "text-purple-500"; }
+                      else if (text.includes("SVOLGIMENTO")) { id = "svolgimento"; borderColor = "border-l-emerald-500"; Icon = BookOpen; iconColor = "text-emerald-500"; }
+                      else if (text.includes("MANCANTI")) { id = "dati-mancanti"; borderColor = "border-l-rose-500"; Icon = AlertCircle; iconColor = "text-rose-500"; }
+
                       return (
-                        <h3 id={id} className="scroll-mt-4" {...props}>
-                          {children}
-                        </h3>
+                        <div
+                          id={id}
+                          className={`scroll-mt-4 not-prose border-l-4 ${borderColor} bg-card rounded-r-lg px-4 py-3 mb-4 mt-6 flex items-center gap-3 shadow-sm`}
+                        >
+                          <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
+                          <h3 className="text-base font-bold text-foreground m-0" {...props}>
+                            {children}
+                          </h3>
+                        </div>
                       );
                     },
                     table: ({ children, ...props }) => (
-                      <div className="overflow-x-auto rounded-lg border border-border">
+                      <div className="overflow-x-auto rounded-lg border border-border shadow-sm my-4">
                         <table className="w-full" {...props}>{children}</table>
                       </div>
                     ),
                     th: ({ children, ...props }) => (
-                      <th className="bg-muted px-3 py-2 text-left text-xs font-semibold" {...props}>{children}</th>
+                      <th className="bg-primary/10 px-3 py-2.5 text-left text-xs font-bold text-foreground uppercase tracking-wider" {...props}>{children}</th>
                     ),
                     td: ({ children, ...props }) => (
                       <td className="px-3 py-2 text-sm border-t border-border" {...props}>{children}</td>
                     ),
+                    blockquote: ({ children, ...props }) => (
+                      <blockquote className="border-l-4 border-amber-500/50 bg-amber-500/5 rounded-r-lg px-4 py-3 my-4 not-prose text-sm text-foreground" {...props}>{children}</blockquote>
+                    ),
+                    strong: ({ children, ...props }) => {
+                      const text = String(children);
+                      if (text.includes("⚠") || text.includes("ATTENZIONE")) {
+                        return <strong className="text-amber-500" {...props}>{children}</strong>;
+                      }
+                      if (text.includes("✅")) {
+                        return <strong className="text-emerald-500" {...props}>{children}</strong>;
+                      }
+                      return <strong {...props}>{children}</strong>;
+                    },
                   }}
                 >
                   {reportMessage.content}
@@ -147,7 +191,6 @@ export function ReportView({
               </div>
             )}
 
-            {/* Streaming indicator */}
             {isLoading && !reportMessage && (
               <div className="flex gap-3 items-center">
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
@@ -163,7 +206,6 @@ export function ReportView({
               </div>
             )}
 
-            {/* Follow-up messages */}
             {followUpMessages.length > 0 && (
               <div className="border-t border-border pt-6 space-y-4">
                 <h3 className="text-sm font-semibold text-muted-foreground">Conversazione di follow-up</h3>

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { Upload, X, FileText, Image, CheckCircle } from "lucide-react";
+import { Upload, X, FileText, Image, CheckCircle, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FileAttachment } from "@/lib/chat-stream";
 
@@ -14,6 +14,20 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const VALID_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+function fileIcon(type: string) {
+  if (type === "application/pdf") return <FileText className="h-4 w-4 text-primary flex-shrink-0" />;
+  if (type.startsWith("image/")) return <Image className="h-4 w-4 text-primary flex-shrink-0" />;
+  return <File className="h-4 w-4 text-primary flex-shrink-0" />;
+}
+
 export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -21,8 +35,7 @@ export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
     async (fileList: FileList) => {
       const newFiles: FileAttachment[] = [];
       for (const file of Array.from(fileList)) {
-        const validTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
-        if (!validTypes.includes(file.type)) continue;
+        if (!VALID_TYPES.includes(file.type)) continue;
         if (file.size > 20 * 1024 * 1024) continue;
 
         const data = await new Promise<string>((resolve) => {
@@ -64,12 +77,12 @@ export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
         <p className="text-sm font-medium text-foreground">
           Trascina qui i file o <span className="text-primary">seleziona file</span>
         </p>
-        <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — max 20MB per file</p>
+        <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG, DOCX — max 20MB per file</p>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.jpg,.jpeg,.png"
+          accept=".pdf,.jpg,.jpeg,.png,.docx"
           className="hidden"
           onChange={(e) => e.target.files && processFiles(e.target.files)}
         />
@@ -87,11 +100,7 @@ export function FileUploadZone({ files, onFilesChange }: FileUploadZoneProps) {
                 className="flex items-center justify-between bg-accent/50 rounded-lg px-3 py-2"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {file.type === "application/pdf" ? (
-                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                  ) : (
-                    <Image className="h-4 w-4 text-primary flex-shrink-0" />
-                  )}
+                  {fileIcon(file.type)}
                   <span className="text-sm truncate">{file.name}</span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     {formatSize(file.size)}
