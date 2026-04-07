@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import type { Message } from "@/lib/chat-stream";
 
 export interface Case {
@@ -12,13 +13,6 @@ export interface Case {
   note?: string;
 }
 
-const CASES_KEY = "legalagent_cases";
-const FOLDERS_KEY = "legalagent_folders";
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
 function generateTitle(messages: Message[]): string {
   const firstUser = messages.find((m) => m.role === "user");
   if (!firstUser) return "Nuovo caso";
@@ -26,93 +20,109 @@ function generateTitle(messages: Message[]): string {
   return text.slice(0, 60) || "Nuovo caso";
 }
 
-export function getAllCases(): Case[] {
-  try {
-    return JSON.parse(localStorage.getItem(CASES_KEY) || "[]");
-  } catch {
-    return [];
-  }
+function toCase(row: any): Case {
+  return {
+    id: row.id,
+    title: row.title,
+    messages: (row.messages as Message[]) || [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    folder: row.folder ?? undefined,
+    titoloPratica: row.titolo_pratica ?? undefined,
+    numeroPratica: row.numero_pratica ?? undefined,
+    note: row.note ?? undefined,
+  };
 }
 
-export function getCase(id: string): Case | undefined {
-  return getAllCases().find((c) => c.id === id);
+export async function getAllCases(): Promise<Case[]> {
+  const { data, error } = await supabase
+    .from("cases")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) { console.error(error); return []; }
+  return (data || []).map(toCase);
 }
 
-export function saveCase(caseData: { id?: string; messages: Message[]; folder?: string; titoloPratica?: string; numeroPratica?: string; note?: string }): Case {
-  const cases = getAllCases();
-  const now = new Date().toISOString();
+export async function getCase(id: string): Promise<Case | undefined> {
+  const { data, error } = await supabase
+    .from("cases")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return undefined;
+  return toCase(data);
+}
+
+export async function saveCase(caseData: {
+  id?: string;
+  messages: Message[];
+  folder?: string;
+  titoloPratica?: string;
+  numeroPratica?: string;
+  note?: string;
+}): Promise<Case> {
+  const title = generateTitle(caseData.messages);
 
   if (caseData.id) {
-    const idx = cases.findIndex((c) => c.id === caseData.id);
-    if (idx !== -1) {
-      cases[idx] = {
-        ...cases[idx],
-        messages: caseData.messages,
-        title: generateTitle(caseData.messages),
-        updatedAt: now,
-        folder: caseData.folder ?? cases[idx].folder,
-        titoloPratica: caseData.titoloPratica ?? cases[idx].titoloPratica,
-        numeroPratica: caseData.numeroPratica ?? cases[idx].numeroPratica,
-        note: caseData.note ?? cases[idx].note,
-      };
-      localStorage.setItem(CASES_KEY, JSON.stringify(cases));
-      return cases[idx];
-    }
+    const { data, error } = await supabase
+      .from("cases")
+      .update({
+        title,
+        messages: caseData.messages as any,
+        folder: caseData.folder ?? null,
+        titolo_pratica: caseData.titoloPratica ?? "",
+        numero_pratica: caseData.numeroPratica ?? "",
+        note: caseData.note ?? "",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", caseData.id)
+      .select()
+      .single();
+
+    if (!error && data) return toCase(data);
   }
 
-  const newCase: Case = {
-    id: caseData.id || generateId(),
-    title: generateTitle(caseData.messages),
-    messages: caseData.messages,
-    createdAt: now,
-    updatedAt: now,
-    folder: caseData.folder,
-    titoloPratica: caseData.titoloPratica,
-    numeroPratica: caseData.numeroPratica,
-    note: caseData.note,
-  };
-  cases.unshift(newCase);
-  localStorage.setItem(CASES_KEY, JSON.stringify(cases));
-  return newCase;
-}
+  const { data, error } = await supabase
+    .from("cases")
+    .insert({
+      title,
+      messages: caseData.messages as any,
+      folder: caseData.folder ?? null,
+      titolo_pratica: caseData.titoloPratica ?? "",
+      numero_pratica: caseData.numeroPratica ?? "",
+      note: caseData.note ?? "",
+    })
+    .select()
+    .single();
 
-export function deleteCase(id: string): void {
-  const cases = getAllCases().filter((c) => c.id !== id);
-  localStorage.setItem(CASES_KEY, JSON.stringify(cases));
-}
-
-export function moveCaseToFolder(id: string, folder: string | undefined): void {
-  const cases = getAllCases();
-  const c = cases.find((c) => c.id === id);
-  if (c) {
-    c.folder = folder;
-    localStorage.setItem(CASES_KEY, JSON.stringify(cases));
+  if (error) {
+    console.error(error);
+    throw new Error("Failed to save case");
   }
+  return toCase(data);
 }
 
-export function getFolders(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
+export async function deleteCase(id: string): Promise<void> {
+  await supabase.from("cases").delete().eq("id", id);
 }
 
-export function addFolder(name: string): void {
-  const folders = getFolders();
-  if (!folders.includes(name)) {
-    folders.push(name);
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  }
+export async function moveCaseToFolder(id: string, folder: string | undefined): Promise<void> {
+  await supabase.from("cases").update({ folder: folder ?? null }).eq("id", id);
 }
 
-export function deleteFolder(name: string): void {
-  const folders = getFolders().filter((f) => f !== name);
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  // Move cases from deleted folder to no folder
-  const cases = getAllCases();
-  cases.forEach((c) => {
-    if (c.folder === name) c.folder = undefined;
-  });
-  localStorage.setItem(CASES_KEY, JSON.stringify(cases));
+export async function getFolders(): Promise<string[]> {
+  const { data } = await supabase
+    .from("folders")
+    .select("name")
+    .order("created_at", { ascending: true });
+  return (data || []).map((f: any) => f.name);
+}
+
+export async function addFolder(name: string): Promise<void> {
+  await supabase.from("folders").insert({ name });
+}
+
+export async function deleteFolder(name: string): Promise<void> {
+  await supabase.from("folders").delete().eq("name", name);
+  await supabase.from("cases").update({ folder: null }).eq("folder", name);
 }

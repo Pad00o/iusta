@@ -1,64 +1,58 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Send, RotateCcw, Scale, Play, Clock } from "lucide-react";
+import { RotateCcw, Scale, Play, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { AnalysisStepper } from "@/components/AnalysisStepper";
-import { AnalysisSettings, type AnalysisConfig } from "@/components/AnalysisSettings";
-import { CaseInfoForm, type CaseInfo } from "@/components/CaseInfoForm";
+import { AnalysisSettings } from "@/components/AnalysisSettings";
+import { CaseInfoForm } from "@/components/CaseInfoForm";
 import { ReportView } from "@/components/ReportView";
-import { streamChat, type Message, type FileAttachment } from "@/lib/chat-stream";
+import { streamChat } from "@/lib/chat-stream";
 import { saveCase, getCase } from "@/lib/case-storage";
+import { useAnalysis } from "@/contexts/AnalysisContext";
 import { toast } from "@/hooks/use-toast";
-
-type Phase = "upload" | "processing" | "report";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [files, setFiles] = useState<FileAttachment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [caseId, setCaseId] = useState<string | null>(null);
-  const [phase, setPhase] = useState<Phase>("upload");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>({
-    mode: "completa",
-    detail: "standard",
-    ocrAdvanced: false,
-    anonymize: true,
-  });
-
-  const [caseInfo, setCaseInfo] = useState<CaseInfo>({
-    titoloPratica: "",
-    numeroPratica: "",
-    note: "",
-  });
+  const {
+    messages, setMessages,
+    files, setFiles,
+    isLoading, setIsLoading,
+    caseId, setCaseId,
+    phase, setPhase,
+    analysisConfig, setAnalysisConfig,
+    caseInfo, setCaseInfo,
+    reset,
+  } = useAnalysis();
 
   // Load case from URL param
   useEffect(() => {
     const id = searchParams.get("case");
     if (id) {
-      const existing = getCase(id);
-      if (existing) {
-        setMessages(existing.messages);
-        setCaseId(id);
-        setCaseInfo({
-          titoloPratica: existing.titoloPratica || "",
-          numeroPratica: existing.numeroPratica || "",
-          note: existing.note || "",
-        });
-        setPhase("report");
-      }
+      getCase(id).then((existing) => {
+        if (existing) {
+          setMessages(existing.messages);
+          setCaseId(id);
+          setCaseInfo({
+            titoloPratica: existing.titoloPratica || "",
+            numeroPratica: existing.numeroPratica || "",
+            note: existing.note || "",
+          });
+          setPhase("report");
+        }
+      });
       setSearchParams({}, { replace: true });
     }
   }, []);
 
   const currentStep = phase === "upload" ? 1 : phase === "processing" ? 3 : 4;
 
-  const saveCurrentCase = (msgs: Message[]) => {
+  const doSaveCase = async (msgs: typeof messages) => {
     if (msgs.length === 0) return;
-    const saved = saveCase({
+    const saved = await saveCase({
       id: caseId || undefined,
       messages: msgs,
       titoloPratica: caseInfo.titoloPratica,
@@ -88,7 +82,7 @@ const Index = () => {
     ].filter(Boolean).join("\n");
 
     const userContent = `Analizza i seguenti documenti del sinistro.\n\n${configText}\n\n[File allegati: ${files.map((f) => f.name).join(", ")}]`;
-    const userMsg: Message = { role: "user", content: userContent };
+    const userMsg = { role: "user" as const, content: userContent };
     const newMessages = [userMsg];
     setMessages(newMessages);
 
@@ -112,7 +106,7 @@ const Index = () => {
         setIsLoading(false);
         setPhase("report");
         setMessages((prev) => {
-          saveCurrentCase(prev);
+          doSaveCase(prev);
           return prev;
         });
       },
@@ -126,7 +120,7 @@ const Index = () => {
 
   const handleFollowUp = async (text: string) => {
     if (isLoading) return;
-    const userMsg: Message = { role: "user", content: text };
+    const userMsg = { role: "user" as const, content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setIsLoading(true);
@@ -148,7 +142,7 @@ const Index = () => {
       onDone: () => {
         setIsLoading(false);
         setMessages((prev) => {
-          saveCurrentCase(prev);
+          doSaveCase(prev);
           return prev;
         });
       },
@@ -187,15 +181,6 @@ const Index = () => {
     }
   };
 
-  const handleReset = () => {
-    setMessages([]);
-    setFiles([]);
-    setIsLoading(false);
-    setCaseId(null);
-    setPhase("upload");
-    setCaseInfo({ titoloPratica: "", numeroPratica: "", note: "" });
-  };
-
   const lastMessage = messages[messages.length - 1];
   const isStreaming = isLoading && lastMessage?.role === "assistant";
 
@@ -205,8 +190,13 @@ const Index = () => {
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
           <AnalysisStepper currentStep={currentStep} />
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4 mr-1" /> Nuova Analisi
+          <Button
+            onClick={reset}
+            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-md hover:shadow-lg transition-all gap-2"
+            size="sm"
+          >
+            <Sparkles className="h-4 w-4" />
+            Nuova Analisi
           </Button>
         </div>
         <ReportView
@@ -225,51 +215,64 @@ const Index = () => {
   // Upload phase
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="border-b border-border bg-card px-4 py-2 flex-shrink-0">
+      <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
         <AnalysisStepper currentStep={currentStep} />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className="lg:hidden"
+        >
+          <Settings2 className="h-5 w-5" />
+        </Button>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Upload zone */}
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-3">
-                  Carica documenti
-                </h2>
-                <FileUploadZone files={files} onFilesChange={setFiles} />
-              </div>
-
-              {/* Case info */}
-              <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
-
-              {/* Start button */}
-              <div className="flex items-center gap-4">
-                <Button
-                  size="lg"
-                  onClick={handleStartAnalysis}
-                  disabled={files.length === 0 || isLoading}
-                  className="px-8"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Avvia analisi
-                </Button>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>Tempo stimato: ~2-4 min</span>
-                </div>
-              </div>
+      <div className="flex flex-1 overflow-hidden">
+        <ScrollArea className="flex-1">
+          <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+            {/* Upload zone */}
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-3">
+                Carica documenti
+              </h2>
+              <FileUploadZone files={files} onFilesChange={setFiles} />
             </div>
 
-            {/* Right sidebar */}
-            <div className="space-y-4">
-              <AnalysisSettings config={analysisConfig} onChange={setAnalysisConfig} />
+            {/* Case info */}
+            <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
+
+            {/* Start button */}
+            <div className="flex items-center gap-4">
+              <Button
+                size="lg"
+                onClick={handleStartAnalysis}
+                disabled={files.length === 0 || isLoading}
+                className="px-8 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg transition-all"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Avvia analisi
+              </Button>
             </div>
           </div>
+        </ScrollArea>
+
+        {/* Right sidebar - collapsible on mobile, always visible on lg */}
+        <div
+          className={`${
+            settingsOpen ? "w-72" : "w-0 lg:w-72"
+          } flex-shrink-0 border-l border-border bg-card overflow-hidden transition-all duration-300`}
+        >
+          <div className="w-72 p-4">
+            <div className="flex items-center justify-between mb-4 lg:hidden">
+              <h3 className="text-sm font-semibold">Impostazioni</h3>
+              <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(false)}>
+                ✕
+              </Button>
+            </div>
+            <AnalysisSettings config={analysisConfig} onChange={setAnalysisConfig} />
+          </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
