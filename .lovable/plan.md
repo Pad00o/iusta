@@ -1,54 +1,69 @@
 
 
-## Piano: Nuova interfaccia Analisi + Pagina Modelli
+## Piano: Miglioramenti UI, persistenza database, e nuove funzionalità
 
-Due macro-interventi: (1) ridisegnare la pagina Analisi con upload strutturato, info pratica e impostazioni analisi, e (2) aggiungere la sezione "Modelli" nella sidebar. Il report dell'agente seguirà la struttura della seconda immagine, mantenendo la possibilità di chattare dopo l'analisi. Colori invariati.
+### 1. Database — Tabella `cases` e `folders`
 
----
+Creazione tabelle in Supabase per salvare i casi (attualmente in localStorage):
 
-### 1. Pagina Analisi — Nuova interfaccia a step
+**Tabella `cases`**: `id` (uuid PK), `title` (text), `messages` (jsonb), `titolo_pratica` (text), `numero_pratica` (text), `note` (text), `folder` (text nullable), `created_at` (timestamptz), `updated_at` (timestamptz)
 
-**Stato iniziale (pre-analisi):**
-- **Stepper orizzontale** in alto: `1 Caricamento → 2 Elaborazione → 3 Analisi IA → 4 Report`
-- **Zona upload** drag & drop prominente al centro
-- **Sidebar destra** con:
-  - "Suggerimenti" (documenti consigliati: Verbali, CID/CAI, Referti, Foto, Perizie)
-  - "Impostazioni analisi" (Modalità Completa/Rapida, Livello dettaglio Standard/Avanzato, toggle OCR avanzato, toggle Anonimizzazione, indicatore RAG attivo)
-- **Lista "File caricati"** con nome, dimensione, stato OCR, bottone elimina
-- **Sezione "Informazioni pratica (opzionale)"**: Titolo pratica, Numero pratica, Note
-- **Card "Privacy e sicurezza"** nella sidebar destra
-- **Bottone "Avvia analisi"** grande in basso con tempo stimato
+**Tabella `folders`**: `id` (uuid PK), `name` (text unique), `created_at` (timestamptz)
 
-**Stato report (post-analisi):**
-- Header con titolo pratica, numero, data, bottoni "Esporta" e "Scarica PDF"
-- **Indice laterale** a sinistra (Scheda Sinistro, Cronistoria, Analisi Tecnica, Contraddizioni, Violazioni CdS, Responsabilità, Svolgimento Fatto, Dati Mancanti)
-- **Sezioni strutturate** del report: Scheda Sinistro (tabella), Cronistoria (tabella), Analisi Tecnica, Contraddizioni e Punti Critici, Violazioni CdS (tabella con grado certezza), Ipotesi Responsabilità (barra colorata), Bozza Svolgimento del Fatto, Dati Mancanti, Note Privacy
-- **Area chat** in basso per continuare la conversazione con l'agente dopo il report
+RLS: accesso libero (no auth come richiesto). Aggiornamento di `case-storage.ts` per usare Supabase invece di localStorage.
 
-**File coinvolti:**
-- Riscrittura `src/pages/Index.tsx`
-- Nuovo `src/components/AnalysisSettings.tsx`, `src/components/CaseInfoForm.tsx`, `src/components/AnalysisStepper.tsx`, `src/components/ReportView.tsx`
-- Modifica `src/components/FileUploadZone.tsx` — stile più grande, lista file con stato OCR
-- Modifica `src/lib/case-storage.ts` — aggiungere campi `titoloPratica`, `numeroPratica`, `note`
+### 2. Storico — Ricerca e filtri data
 
-### 2. Pagina Modelli (Templates operativi)
+- Campo di ricerca in alto per filtrare per titolo/contenuto
+- Filtro per intervallo date (da/a) con input date
+- Design più curato con header e contatori
 
-Nuova pagina `/modelli` con template documenti legali per infortunistica:
+### 3. Upload .docx
 
-- **Lista template**: Atto di citazione, Comparsa di costituzione, Messa in mora assicurazione, Richiesta risarcimento danni, Diffida, Transazione stragiudiziale, Istanza di accesso atti
-- Ogni template ha un **selettore caso** (dropdown dallo storico) per collegarlo a un caso
-- Bottone **"Genera documento"** invia al chat edge function un prompt specifico per generare il documento con i dati del caso
-- Documento generato con copia/scarica PDF
+- Aggiungere `application/vnd.openxmlformats-officedocument.wordprocessingml.document` ai tipi accettati in `FileUploadZone.tsx`
+- Aggiornare l'attributo `accept` dell'input e il testo descrittivo
 
-**File coinvolti:**
-- Nuovo `src/pages/Modelli.tsx`, `src/lib/templates.ts`
-- Modifica `src/components/AppSidebar.tsx` — voce "Modelli" con icona `FileText` sopra Settings
-- Modifica `src/App.tsx` — rotta `/modelli`
+### 4. Rimuovere tempo stimato e icona orologio
 
-### 3. Dettagli tecnici
+- In `Index.tsx` eliminare le righe 259-262 (Clock icon + "Tempo stimato: ~2-4 min")
+- Rimuovere import `Clock`
 
-- Le impostazioni analisi vengono passate all'edge function `chat` come parametri nel body, il system prompt si arricchisce di conseguenza
-- Il ReportView parsa il markdown per estrarre sezioni e renderizzarle in card/tabelle, con fallback al markdown raw
-- La generazione template usa lo stesso edge function `chat` con system prompt dedicato alla generazione documenti legali
-- I dati pratica vengono salvati nel caso in localStorage
+### 5. Report page — Design ispirato alla foto
+
+Ridisegno di `ReportView.tsx` per replicare la struttura dell'immagine di riferimento:
+- Header con logo LegalAgent, badge "REPORT DI ANALISI", pratica, data, bottoni Esporta/Scarica PDF
+- Indice laterale sinistro con icone colorate per ogni sezione (Scheda Sinistro, Cronistoria, Analisi Tecnica, Contraddizioni, Violazioni CdS, Responsabilità, Svolgimento Fatto, Dati Mancanti)
+- Sezione Documenti con conteggio file analizzati
+- Sezioni del report in card con bordi e icone colorate come nell'immagine
+- Tabelle stilizzate con header colorati per Cronistoria e Violazioni CdS
+- Card "Contraddizioni e Punti Critici" con bordo rosso/arancione
+- Card "Ipotesi Responsabilità" con barra colorata
+- Card "Dati Mancanti" con bordo rosso e icona alert
+- Card "Note Privacy" con sfondo grigio chiaro
+- Colori: blu per sezioni normali, rosso/arancione per criticità, verde per conferme
+
+### 6. Sidebar destra collassabile
+
+- In `Index.tsx` fase upload: la sidebar destra (AnalysisSettings) diventa un pannello collassabile
+- Stato iniziale: chiuso (icona hamburger/ingranaggio in alto a destra per aprirlo)
+- Si apre come overlay o pannello sliding da destra
+- Bottone toggle visibile in alto a destra
+
+### 7. Persistenza analisi tra navigazioni
+
+- Lo stato dell'analisi corrente (messages, files, phase, caseInfo, config) viene mantenuto in un contesto React globale o tramite `useRef` che non si resetta al cambio rotta
+- Quando l'utente torna su "Analisi" dopo aver visitato Storico/Modelli/Settings, ritrova l'analisi in corso
+- Solo "Nuova Analisi" resetta lo stato
+- Implementazione: spostare lo stato dell'analisi in un Context (`AnalysisContext`) wrappato nell'AppLayout
+
+### 8. Bottone "Nuova Analisi" più bello
+
+- Design gradient con icona sparkle/plus, bordo arrotondato, effetto hover con animazione
+- Posizionato in modo prominente nel header del report
+
+### File coinvolti
+- **Migrazione DB**: creazione tabelle `cases` e `folders`
+- **Modificati**: `src/lib/case-storage.ts` (Supabase), `src/pages/Index.tsx`, `src/pages/Storico.tsx`, `src/components/ReportView.tsx`, `src/components/FileUploadZone.tsx`
+- **Nuovo**: `src/contexts/AnalysisContext.tsx` (contesto globale per persistenza stato analisi)
+- **Modificati**: `src/components/AppLayout.tsx` (wrap con AnalysisContext)
 
