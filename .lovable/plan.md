@@ -1,69 +1,45 @@
 
 
-## Piano: Miglioramenti UI, persistenza database, e nuove funzionalità
+## Piano: Aggiornamento Prompt IUSTA V2 + Export DOCX + Markdown Viewer migliorato
 
-### 1. Database — Tabella `cases` e `folders`
+### 1. Aggiornamento System Prompt (Edge Function `chat`)
 
-Creazione tabelle in Supabase per salvare i casi (attualmente in localStorage):
+Sostituire il `SYSTEM_PROMPT` in `supabase/functions/chat/index.ts` con il nuovo prompt IUSTA V2 fornito. Il prompt include:
+- Protocollo RAG a 3 step (Estrazione con fonti, Cross-check contraddizioni, Violazioni CdS)
+- Formato output strutturato: Cronistoria Certificata, Criticita e Contraddizioni (con icone ⚠️ ⚖️ 🛠️), Valutazione Responsabilita, Bozza Svolgimento del Fatto
+- Branding "IUSTA" al posto di "LegalAgent"
 
-**Tabella `cases`**: `id` (uuid PK), `title` (text), `messages` (jsonb), `titolo_pratica` (text), `numero_pratica` (text), `note` (text), `folder` (text nullable), `created_at` (timestamptz), `updated_at` (timestamptz)
+Il nome dell'app nell'header del report e nel prompt viene aggiornato a "IUSTA".
 
-**Tabella `folders`**: `id` (uuid PK), `name` (text unique), `created_at` (timestamptz)
+### 2. Export DOCX
 
-RLS: accesso libero (no auth come richiesto). Aggiornamento di `case-storage.ts` per usare Supabase invece di localStorage.
+Creare una edge function `generate-docx` che:
+- Riceve il markdown del report
+- Usa la libreria `docx` (disponibile via CDN esm.sh) per generare un .docx professionale
+- Converte le sezioni markdown in heading, tabelle, paragrafi formattati
+- Restituisce il buffer binario come download
 
-### 2. Storico — Ricerca e filtri data
+Nel frontend (`ReportView.tsx` e `Index.tsx`):
+- Aggiungere bottone "Scarica DOCX" accanto a "Scarica PDF"
+- Implementare `handleExportDocx` che chiama la nuova edge function
 
-- Campo di ricerca in alto per filtrare per titolo/contenuto
-- Filtro per intervallo date (da/a) con input date
-- Design più curato con header e contatori
+### 3. Markdown Viewer migliorato nel ReportView
 
-### 3. Upload .docx
+Aggiornare `ReportView.tsx` con:
+- Sezioni del report allineate al nuovo formato IUSTA V2 (Cronistoria Certificata, Criticita e Contraddizioni con highlights colorati, Valutazione Responsabilita, Bozza Svolgimento)
+- Aggiornare `sectionAnchors` per riflettere le nuove sezioni
+- Aggiornare il matching delle h3 per i nuovi titoli
+- Rendering migliorato per i blocchi di "highlights" (⚠️ BUGIA TECNICA, ⚖️ SMENTITA, 🛠️ INCONGRUENZA) con card colorate dedicate
+- Aggiungere rendering custom per le `li` (list items) con icone colorate quando contengono emoji specifiche
+- Stile blockquote migliorato per la bozza dello svolgimento del fatto (sfondo verde/emerald per indicare testo pronto per l'atto)
 
-- Aggiungere `application/vnd.openxmlformats-officedocument.wordprocessingml.document` ai tipi accettati in `FileUploadZone.tsx`
-- Aggiornare l'attributo `accept` dell'input e il testo descrittivo
+### 4. Branding "IUSTA"
 
-### 4. Rimuovere tempo stimato e icona orologio
-
-- In `Index.tsx` eliminare le righe 259-262 (Clock icon + "Tempo stimato: ~2-4 min")
-- Rimuovere import `Clock`
-
-### 5. Report page — Design ispirato alla foto
-
-Ridisegno di `ReportView.tsx` per replicare la struttura dell'immagine di riferimento:
-- Header con logo LegalAgent, badge "REPORT DI ANALISI", pratica, data, bottoni Esporta/Scarica PDF
-- Indice laterale sinistro con icone colorate per ogni sezione (Scheda Sinistro, Cronistoria, Analisi Tecnica, Contraddizioni, Violazioni CdS, Responsabilità, Svolgimento Fatto, Dati Mancanti)
-- Sezione Documenti con conteggio file analizzati
-- Sezioni del report in card con bordi e icone colorate come nell'immagine
-- Tabelle stilizzate con header colorati per Cronistoria e Violazioni CdS
-- Card "Contraddizioni e Punti Critici" con bordo rosso/arancione
-- Card "Ipotesi Responsabilità" con barra colorata
-- Card "Dati Mancanti" con bordo rosso e icona alert
-- Card "Note Privacy" con sfondo grigio chiaro
-- Colori: blu per sezioni normali, rosso/arancione per criticità, verde per conferme
-
-### 6. Sidebar destra collassabile
-
-- In `Index.tsx` fase upload: la sidebar destra (AnalysisSettings) diventa un pannello collassabile
-- Stato iniziale: chiuso (icona hamburger/ingranaggio in alto a destra per aprirlo)
-- Si apre come overlay o pannello sliding da destra
-- Bottone toggle visibile in alto a destra
-
-### 7. Persistenza analisi tra navigazioni
-
-- Lo stato dell'analisi corrente (messages, files, phase, caseInfo, config) viene mantenuto in un contesto React globale o tramite `useRef` che non si resetta al cambio rotta
-- Quando l'utente torna su "Analisi" dopo aver visitato Storico/Modelli/Settings, ritrova l'analisi in corso
-- Solo "Nuova Analisi" resetta lo stato
-- Implementazione: spostare lo stato dell'analisi in un Context (`AnalysisContext`) wrappato nell'AppLayout
-
-### 8. Bottone "Nuova Analisi" più bello
-
-- Design gradient con icona sparkle/plus, bordo arrotondato, effetto hover con animazione
-- Posizionato in modo prominente nel header del report
+- Aggiornare header del report da "LegalAgent" a "IUSTA"
+- Badge "REPORT DI ANALISI TECNICO-GIURIDICA"
+- Aggiornare anche `generate-pdf/index.ts` con il nuovo branding
 
 ### File coinvolti
-- **Migrazione DB**: creazione tabelle `cases` e `folders`
-- **Modificati**: `src/lib/case-storage.ts` (Supabase), `src/pages/Index.tsx`, `src/pages/Storico.tsx`, `src/components/ReportView.tsx`, `src/components/FileUploadZone.tsx`
-- **Nuovo**: `src/contexts/AnalysisContext.tsx` (contesto globale per persistenza stato analisi)
-- **Modificati**: `src/components/AppLayout.tsx` (wrap con AnalysisContext)
+- **Modificati**: `supabase/functions/chat/index.ts` (nuovo prompt), `supabase/functions/generate-pdf/index.ts` (branding), `src/components/ReportView.tsx` (sezioni, DOCX button, markdown viewer), `src/pages/Index.tsx` (handler DOCX)
+- **Nuovo**: `supabase/functions/generate-docx/index.ts`
 
