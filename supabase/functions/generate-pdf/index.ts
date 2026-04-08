@@ -9,30 +9,26 @@ const corsHeaders = {
 function markdownToHtml(md: string): string {
   let html = md;
 
-  // Headers
   html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
   html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
   html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
 
-  // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-  // Italic
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
 
-  // Tables
+  // Highlight items
+  html = html.replace(/^- ⚠️ (.+)$/gm, '<div style="background:#FFF3CD;border-left:4px solid #FFC107;padding:8px 12px;margin:6px 0;">⚠️ $1</div>');
+  html = html.replace(/^- ⚖️ (.+)$/gm, '<div style="background:#D1ECF1;border-left:4px solid #17A2B8;padding:8px 12px;margin:6px 0;">⚖️ $1</div>');
+  html = html.replace(/^- 🛠️ (.+)$/gm, '<div style="background:#F8D7DA;border-left:4px solid #DC3545;padding:8px 12px;margin:6px 0;">🛠️ $1</div>');
+
   html = html.replace(/^\|(.+)\|$/gm, (match) => {
-    const cells = match
-      .split("|")
-      .filter((c) => c.trim() !== "")
-      .map((c) => c.trim());
+    const cells = match.split("|").filter((c) => c.trim() !== "").map((c) => c.trim());
     if (cells.every((c) => /^[-:]+$/.test(c))) return "<!--separator-->";
     return "<tr>" + cells.map((c) => `<td style="border:1px solid #ccc;padding:6px 10px;">${c}</td>`).join("") + "</tr>";
   });
   html = html.replace(/((<tr>.*<\/tr>\n?)+)/g, '<table style="border-collapse:collapse;width:100%;margin:12px 0;">$1</table>');
   html = html.replace(/<!--separator-->\n?/g, "");
 
-  // Line breaks / paragraphs
   html = html.replace(/\n{2,}/g, "</p><p>");
   html = html.replace(/\n/g, "<br/>");
   html = `<p>${html}</p>`;
@@ -76,24 +72,23 @@ serve(async (req) => {
 </head>
 <body>
 <div class="header">
-  <h1>⚖️ LegalAgent v1.0</h1>
-  <p style="color:#666;margin:4px 0 0;">Report Analisi Infortunistica — ${new Date().toLocaleDateString("it-IT")}</p>
+  <h1>⚖️ IUSTA</h1>
+  <p style="color:#444;margin:4px 0 0;font-size:12pt;font-weight:bold;">Report di Analisi Tecnico-Giuridica</p>
+  <p style="color:#666;margin:4px 0 0;">${new Date().toLocaleDateString("it-IT")}</p>
 </div>
 ${bodyHtml}
 <div class="footer">
-  Documento generato da LegalAgent v1.0 — Analisi Infortunistica Stradale<br/>
+  Documento generato da IUSTA — Analisi Infortunistica Stradale<br/>
   Generato il ${new Date().toLocaleString("it-IT")}
 </div>
 </body>
 </html>`;
 
-    // Return HTML that the client can use to generate PDF via window.print or similar
-    // For a proper server-side PDF, we return the HTML and let the client handle printing
     return new Response(fullHtml, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": "attachment; filename=LegalAgent_Report.html",
+        "Content-Disposition": "attachment; filename=IUSTA_Report.html",
       },
     });
   } catch (e) {

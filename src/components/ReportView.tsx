@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/ChatMessage";
-import { Send, Download, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle } from "lucide-react";
+import { Send, Download, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle, FileDown } from "lucide-react";
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,16 +16,14 @@ interface ReportViewProps {
   numeroPratica: string;
   onSendFollowUp: (text: string) => void;
   onExportPdf: () => void;
+  onExportDocx?: () => void;
 }
 
 const sectionAnchors = [
-  { id: "scheda-sinistro", label: "Scheda Sinistro", icon: FileText, color: "text-blue-500" },
-  { id: "cronistoria", label: "Cronistoria", icon: Clock, color: "text-indigo-500" },
-  { id: "analisi-critica", label: "Analisi Tecnica", icon: Search, color: "text-cyan-500" },
-  { id: "contraddizioni", label: "Contraddizioni", icon: AlertTriangle, color: "text-amber-500" },
-  { id: "violazioni", label: "Violazioni CdS", icon: Shield, color: "text-red-500" },
-  { id: "responsabilita", label: "Responsabilità", icon: Scale, color: "text-purple-500" },
-  { id: "svolgimento", label: "Svolgimento Fatto", icon: BookOpen, color: "text-emerald-500" },
+  { id: "cronistoria", label: "Cronistoria Certificata", icon: Clock, color: "text-indigo-500" },
+  { id: "criticita", label: "Criticità e Contraddizioni", icon: AlertTriangle, color: "text-amber-500" },
+  { id: "responsabilita", label: "Valutazione Responsabilità", icon: Scale, color: "text-purple-500" },
+  { id: "svolgimento", label: "Bozza Svolgimento", icon: BookOpen, color: "text-emerald-500" },
   { id: "dati-mancanti", label: "Dati Mancanti", icon: AlertCircle, color: "text-rose-500" },
 ];
 
@@ -37,6 +35,7 @@ export function ReportView({
   numeroPratica,
   onSendFollowUp,
   onExportPdf,
+  onExportDocx,
 }: ReportViewProps) {
   const [followUpInput, setFollowUpInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -106,10 +105,10 @@ export function ReportView({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-foreground">
-                  {titoloPratica || "Report Analisi"}
+                  {titoloPratica || "IUSTA Report"}
                 </h2>
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary rounded-full uppercase tracking-wider">
-                  Report di Analisi
+                  Report di Analisi Tecnico-Giuridica
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -118,10 +117,18 @@ export function ReportView({
               </div>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={onExportPdf} className="gap-1.5">
-            <Download className="h-4 w-4" />
-            Scarica PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onExportPdf} className="gap-1.5">
+              <Download className="h-4 w-4" />
+              PDF
+            </Button>
+            {onExportDocx && (
+              <Button variant="outline" size="sm" onClick={onExportDocx} className="gap-1.5">
+                <FileDown className="h-4 w-4" />
+                DOCX
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Report body */}
@@ -139,13 +146,10 @@ export function ReportView({
                       let Icon = FileText;
                       let iconColor = "text-primary";
 
-                      if (text.includes("SCHEDA")) { id = "scheda-sinistro"; borderColor = "border-l-blue-500"; Icon = FileText; iconColor = "text-blue-500"; }
-                      else if (text.includes("CRONISTORIA")) { id = "cronistoria"; borderColor = "border-l-indigo-500"; Icon = Clock; iconColor = "text-indigo-500"; }
-                      else if (text.includes("ANALISI") || text.includes("TECNICA")) { id = "analisi-critica"; borderColor = "border-l-cyan-500"; Icon = Search; iconColor = "text-cyan-500"; }
-                      else if (text.includes("CONTRADDIZIONI") || text.includes("CRITICI")) { id = "contraddizioni"; borderColor = "border-l-amber-500"; Icon = AlertTriangle; iconColor = "text-amber-500"; }
-                      else if (text.includes("VIOLAZIONI")) { id = "violazioni"; borderColor = "border-l-red-500"; Icon = Shield; iconColor = "text-red-500"; }
-                      else if (text.includes("RESPONSABILIT")) { id = "responsabilita"; borderColor = "border-l-purple-500"; Icon = Scale; iconColor = "text-purple-500"; }
-                      else if (text.includes("SVOLGIMENTO")) { id = "svolgimento"; borderColor = "border-l-emerald-500"; Icon = BookOpen; iconColor = "text-emerald-500"; }
+                      if (text.includes("CRONISTORIA")) { id = "cronistoria"; borderColor = "border-l-indigo-500"; Icon = Clock; iconColor = "text-indigo-500"; }
+                      else if (text.includes("CRITICIT") || text.includes("CONTRADDIZIONI")) { id = "criticita"; borderColor = "border-l-amber-500"; Icon = AlertTriangle; iconColor = "text-amber-500"; }
+                      else if (text.includes("RESPONSABILIT") || text.includes("VALUTAZIONE")) { id = "responsabilita"; borderColor = "border-l-purple-500"; Icon = Scale; iconColor = "text-purple-500"; }
+                      else if (text.includes("SVOLGIMENTO") || text.includes("BOZZA")) { id = "svolgimento"; borderColor = "border-l-emerald-500"; Icon = BookOpen; iconColor = "text-emerald-500"; }
                       else if (text.includes("MANCANTI")) { id = "dati-mancanti"; borderColor = "border-l-rose-500"; Icon = AlertCircle; iconColor = "text-rose-500"; }
 
                       return (
@@ -172,10 +176,44 @@ export function ReportView({
                       <td className="px-3 py-2 text-sm border-t border-border" {...props}>{children}</td>
                     ),
                     blockquote: ({ children, ...props }) => (
-                      <blockquote className="border-l-4 border-amber-500/50 bg-amber-500/5 rounded-r-lg px-4 py-3 my-4 not-prose text-sm text-foreground" {...props}>{children}</blockquote>
+                      <blockquote className="border-l-4 border-emerald-500/50 bg-emerald-500/5 rounded-r-lg px-4 py-3 my-4 not-prose text-sm text-foreground italic" {...props}>{children}</blockquote>
                     ),
+                    li: ({ children, ...props }) => {
+                      const text = String(children);
+                      if (text.includes("⚠️")) {
+                        return (
+                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20" {...props}>
+                            {children}
+                          </li>
+                        );
+                      }
+                      if (text.includes("⚖️")) {
+                        return (
+                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20" {...props}>
+                            {children}
+                          </li>
+                        );
+                      }
+                      if (text.includes("🛠️")) {
+                        return (
+                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20" {...props}>
+                            {children}
+                          </li>
+                        );
+                      }
+                      return <li {...props}>{children}</li>;
+                    },
                     strong: ({ children, ...props }) => {
                       const text = String(children);
+                      if (text.includes("BUGIA TECNICA")) {
+                        return <strong className="text-amber-500" {...props}>{children}</strong>;
+                      }
+                      if (text.includes("SMENTITA")) {
+                        return <strong className="text-blue-500" {...props}>{children}</strong>;
+                      }
+                      if (text.includes("INCONGRUENZA")) {
+                        return <strong className="text-red-500" {...props}>{children}</strong>;
+                      }
                       if (text.includes("⚠") || text.includes("ATTENZIONE")) {
                         return <strong className="text-amber-500" {...props}>{children}</strong>;
                       }

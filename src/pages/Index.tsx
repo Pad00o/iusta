@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { RotateCcw, Scale, Play, Settings2, Sparkles } from "lucide-react";
+import { Play, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileUploadZone } from "@/components/FileUploadZone";
@@ -173,11 +173,42 @@ const Index = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${caseInfo.titoloPratica || "report-analisi"}.pdf`;
+      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
       toast({ title: "Errore nel download del PDF", variant: "destructive" });
+    }
+  };
+
+  const handleExportDocx = async () => {
+    const reportMsg = messages.find((m) => m.role === "assistant");
+    if (!reportMsg) return;
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-docx`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            markdown: reportMsg.content,
+            titoloPratica: caseInfo.titoloPratica,
+          }),
+        }
+      );
+      if (!resp.ok) throw new Error();
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Errore nel download del DOCX", variant: "destructive" });
     }
   };
 
@@ -207,6 +238,7 @@ const Index = () => {
           numeroPratica={caseInfo.numeroPratica}
           onSendFollowUp={handleFollowUp}
           onExportPdf={handleExportPdf}
+          onExportDocx={handleExportDocx}
         />
       </div>
     );
@@ -230,7 +262,6 @@ const Index = () => {
       <div className="flex flex-1 overflow-hidden">
         <ScrollArea className="flex-1">
           <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-            {/* Upload zone */}
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-3">
                 Carica documenti
@@ -238,10 +269,8 @@ const Index = () => {
               <FileUploadZone files={files} onFilesChange={setFiles} />
             </div>
 
-            {/* Case info */}
             <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
 
-            {/* Start button */}
             <div className="flex items-center gap-4">
               <Button
                 size="lg"
@@ -256,7 +285,6 @@ const Index = () => {
           </div>
         </ScrollArea>
 
-        {/* Right sidebar - collapsible on mobile, always visible on lg */}
         <div
           className={`${
             settingsOpen ? "w-72" : "w-0 lg:w-72"
