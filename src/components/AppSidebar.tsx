@@ -39,7 +39,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="overflow-hidden">
               <h2 className="text-sm font-semibold text-sidebar-foreground leading-tight">
-                LegalAgent
+                IUSTA
               </h2>
               <p className="text-[11px] text-muted-foreground leading-tight">
                 Infortunistica Stradale
