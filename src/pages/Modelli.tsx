@@ -3,25 +3,39 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Copy, Send, ChevronRight } from "lucide-react";
-import { legalTemplates, type LegalTemplate } from "@/lib/templates";
+import { legalTemplates } from "@/lib/templates";
 import { getAllCases, type Case } from "@/lib/case-storage";
 import { streamChat } from "@/lib/chat-stream";
 import { toast } from "@/hooks/use-toast";
+import { useModelli } from "@/contexts/ModelliContext";
+import { useSidebar } from "@/components/ui/sidebar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export default function Modelli() {
   const [cases, setCases] = useState<Case[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<LegalTemplate | null>(null);
-  const [selectedCaseId, setSelectedCaseId] = useState("");
-  const [generatedDoc, setGeneratedDoc] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { toggleSidebar, setOpenMobile, state: sidebarState } = useSidebar();
+
+  const {
+    selectedTemplate, setSelectedTemplate,
+    selectedCaseId, setSelectedCaseId,
+    generatedDoc, setGeneratedDoc,
+    isGenerating, setIsGenerating,
+    resetModelli,
+  } = useModelli();
 
   useEffect(() => {
     getAllCases().then(setCases);
   }, []);
 
   const selectedCase = cases.find((c) => c.id === selectedCaseId);
+
+  const collapseSidebar = () => {
+    if (sidebarState === "expanded") {
+      toggleSidebar();
+    }
+    setOpenMobile(false);
+  };
 
   const handleGenerate = async () => {
     if (!selectedTemplate) return;
@@ -38,7 +52,10 @@ export default function Modelli() {
     await streamChat({
       messages: [{ role: "user", content: prompt }],
       onDelta: (chunk) => { soFar += chunk; setGeneratedDoc(soFar); },
-      onDone: () => setIsGenerating(false),
+      onDone: () => {
+        setIsGenerating(false);
+        collapseSidebar();
+      },
       onError: (err) => { toast({ title: err, variant: "destructive" }); setIsGenerating(false); },
     });
   };
@@ -52,7 +69,7 @@ export default function Modelli() {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-border bg-card px-6 py-4 flex items-center gap-3 flex-shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedTemplate(null); setGeneratedDoc(""); }}>
+          <Button variant="ghost" size="sm" onClick={resetModelli}>
             ← Modelli
           </Button>
           <span className="text-2xl">{selectedTemplate.icon}</span>
