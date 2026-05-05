@@ -214,7 +214,7 @@ const Index = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.doc`;
+      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
