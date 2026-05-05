@@ -3,6 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 // @ts-ignore - esm.sh side-effect import to extend jsPDF prototype
 import autoTable from "https://esm.sh/jspdf-autotable@3.8.2";
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -282,23 +284,18 @@ serve(async (req) => {
     if (format === "html-public-url") {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, serviceKey);
       const html = buildSimpleHtml(markdown, titoloPratica);
       const fname = `report_${crypto.randomUUID()}.html`;
-      const upRes = await fetch(`${supabaseUrl}/storage/v1/object/reports/${fname}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "text/html; charset=utf-8",
-          "x-upsert": "true",
-        },
-        body: html,
-      });
-      if (!upRes.ok) {
-        const t = await upRes.text();
-        throw new Error("Upload failed: " + t);
-      }
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/reports/${fname}`;
-      return new Response(JSON.stringify({ url: publicUrl }), {
+      const { error: upErr } = await supabase.storage
+        .from("reports")
+        .upload(fname, new Blob([html], { type: "text/html; charset=utf-8" }), {
+          contentType: "text/html; charset=utf-8",
+          upsert: true,
+        });
+      if (upErr) throw new Error("Upload failed: " + upErr.message);
+      const { data: pub } = supabase.storage.from("reports").getPublicUrl(fname);
+      return new Response(JSON.stringify({ url: pub.publicUrl }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
