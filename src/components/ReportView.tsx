@@ -8,6 +8,7 @@ import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookO
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { NeonProgressBar } from "@/components/NeonProgressBar";
 
 interface ReportViewProps {
   messages: Message[];
@@ -304,17 +305,8 @@ export function ReportView({
             )}
 
             {isLoading && !reportMessage && (
-              <div className="flex gap-3 items-center">
-                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                  <Scale className="h-4 w-4 text-primary-foreground animate-pulse" />
-                </div>
-                <div className="bg-card border border-border rounded-lg px-4 py-3">
-                  <div className="flex gap-1">
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.15s]" />
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.3s]" />
-                  </div>
-                </div>
+              <div className="py-12">
+                <NeonProgressBar active={isLoading} done={false} />
               </div>
             )}
 

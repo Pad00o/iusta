@@ -11,6 +11,7 @@ import { ReportView } from "@/components/ReportView";
 import { streamChat } from "@/lib/chat-stream";
 import { saveCase, getCase } from "@/lib/case-storage";
 import { useAnalysis } from "@/contexts/AnalysisContext";
+import { NeonProgressBar } from "@/components/NeonProgressBar";
 import { useSidebar } from "@/components/ui/sidebar";
 import { toast } from "@/hooks/use-toast";
 
@@ -214,7 +215,7 @@ const Index = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.doc`;
+      a.download = `${caseInfo.titoloPratica || "IUSTA_Report"}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
