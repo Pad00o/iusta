@@ -11,6 +11,7 @@ import { ReportView } from "@/components/ReportView";
 import { streamChat } from "@/lib/chat-stream";
 import { saveCase, getCase } from "@/lib/case-storage";
 import { useAnalysis } from "@/contexts/AnalysisContext";
+import { NeonProgressBar } from "@/components/NeonProgressBar";
 import { useSidebar } from "@/components/ui/sidebar";
 import { toast } from "@/hooks/use-toast";
 
