@@ -4,11 +4,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/ChatMessage";
 import { DownloadDialog } from "@/components/DownloadDialog";
-import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle, Settings2, BarChart3, Eye } from "lucide-react";
+import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle, Settings2, BarChart3, Eye, RefreshCw } from "lucide-react";
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { NeonProgressBar } from "@/components/NeonProgressBar";
+import { QuickFollowupButtons } from "@/components/QuickFollowupButtons";
+import { VersionHistory } from "@/components/VersionHistory";
 
 interface ReportViewProps {
   messages: Message[];
@@ -19,6 +21,9 @@ interface ReportViewProps {
   onSendFollowUp: (text: string) => void;
   onExportPdf: () => void;
   onExportDocx?: () => void;
+  caseId?: string | null;
+  onRestoreVersion?: (msgs: Message[]) => void;
+  onRegenerateSection?: (sectionTitle: string) => void;
 }
 
 const sectionAnchors = [
