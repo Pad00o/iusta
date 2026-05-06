@@ -4,11 +4,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/ChatMessage";
 import { DownloadDialog } from "@/components/DownloadDialog";
-import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle, Settings2, BarChart3, Eye } from "lucide-react";
+import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookOpen, Search, AlertCircle, Settings2, BarChart3, Eye, RefreshCw } from "lucide-react";
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { NeonProgressBar } from "@/components/NeonProgressBar";
+import { QuickFollowupButtons } from "@/components/QuickFollowupButtons";
+import { VersionHistory } from "@/components/VersionHistory";
 
 interface ReportViewProps {
   messages: Message[];
@@ -19,6 +21,9 @@ interface ReportViewProps {
   onSendFollowUp: (text: string) => void;
   onExportPdf: () => void;
   onExportDocx?: () => void;
+  caseId?: string | null;
+  onRestoreVersion?: (msgs: Message[]) => void;
+  onRegenerateSection?: (sectionTitle: string) => void;
 }
 
 const sectionAnchors = [
@@ -42,6 +47,9 @@ export function ReportView({
   onSendFollowUp,
   onExportPdf,
   onExportDocx,
+  caseId,
+  onRestoreVersion,
+  onRegenerateSection,
 }: ReportViewProps) {
   const [followUpInput, setFollowUpInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -115,12 +123,17 @@ export function ReportView({
               </div>
             </div>
           </div>
-          <DownloadDialog
-            onExportPdf={onExportPdf}
-            onExportDocx={onExportDocx || (() => {})}
-            markdown={reportMessage?.content || ""}
-            titoloPratica={titoloPratica}
-          />
+          <div className="flex items-center gap-2">
+            {caseId && onRestoreVersion && (
+              <VersionHistory caseId={caseId} onRestore={onRestoreVersion} />
+            )}
+            <DownloadDialog
+              onExportPdf={onExportPdf}
+              onExportDocx={onExportDocx || (() => {})}
+              markdown={reportMessage?.content || ""}
+              titoloPratica={titoloPratica}
+            />
+          </div>
         </div>
 
         {/* Report body */}
@@ -166,15 +179,26 @@ export function ReportView({
                         id = "note-privacy"; borderColor = "border-l-gray-400"; Icon = Eye; iconColor = "text-gray-500"; bgColor = "bg-muted/50";
                       }
 
+                      const sectionTitle = String(children);
                       return (
                         <div
                           id={id}
-                          className={`scroll-mt-4 not-prose border-l-4 ${borderColor} ${bgColor} rounded-r-lg px-4 py-3 mb-4 mt-8 flex items-center gap-3 shadow-sm border border-border`}
+                          className={`scroll-mt-4 not-prose border-l-4 ${borderColor} ${bgColor} rounded-r-lg px-4 py-3 mb-4 mt-8 flex items-center gap-3 shadow-sm border border-border group`}
                         >
                           <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
-                          <h2 className="text-sm font-bold text-foreground m-0 uppercase tracking-wide" {...props}>
+                          <h2 className="text-sm font-bold text-foreground m-0 uppercase tracking-wide flex-1" {...props}>
                             {children}
                           </h2>
+                          {onRegenerateSection && (
+                            <button
+                              onClick={() => onRegenerateSection(sectionTitle)}
+                              disabled={isLoading}
+                              title="Rigenera questa sezione"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                            >
+                              <RefreshCw className="h-3 w-3" /> Rigenera
+                            </button>
+                          )}
                         </div>
                       );
                     },
@@ -342,18 +366,23 @@ export function ReportView({
 
         {/* Follow-up chat input */}
         <div className="border-t border-border bg-card px-4 py-3 flex-shrink-0">
-          <div className="max-w-4xl mx-auto flex gap-2">
-            <Textarea
-              value={followUpInput}
-              onChange={(e) => setFollowUpInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Chiedi ulteriori approfondimenti sull'analisi..."
-              className="min-h-[40px] max-h-[100px] resize-none text-sm"
-              disabled={isLoading}
-            />
-            <Button onClick={handleSend} disabled={isLoading || !followUpInput.trim()} className="h-auto">
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="max-w-4xl mx-auto">
+            {reportMessage && !isLoading && (
+              <QuickFollowupButtons onSend={onSendFollowUp} disabled={isLoading} />
+            )}
+            <div className="flex gap-2">
+              <Textarea
+                value={followUpInput}
+                onChange={(e) => setFollowUpInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Chiedi ulteriori approfondimenti sull'analisi..."
+                className="min-h-[40px] max-h-[100px] resize-none text-sm"
+                disabled={isLoading}
+              />
+              <Button onClick={handleSend} disabled={isLoading || !followUpInput.trim()} className="h-auto">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

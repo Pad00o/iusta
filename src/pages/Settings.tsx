@@ -1,9 +1,17 @@
-import { Settings as SettingsIcon, Info, Palette, FileDown } from "lucide-react";
+import { useState } from "react";
+import { Settings as SettingsIcon, Info, Palette, FileDown, BookOpen, Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { OnboardingTour } from "@/components/OnboardingTour";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { requestNotificationPermission } from "@/hooks/useBrowserNotifications";
+import { toast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const [showTour, setShowTour] = useState(false);
   return (
     <div className="flex-1 overflow-auto">
+      {showTour && <OnboardingTour forceOpen onClose={() => setShowTour(false)} />}
       <div className="max-w-3xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-semibold text-foreground mb-6">Impostazioni</h1>
 
@@ -33,25 +41,32 @@ export default function Settings() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Palette className="h-4 w-4" /> Tema
-              </CardTitle>
-              <CardDescription>Personalizzazione dell'aspetto (prossimamente)</CardDescription>
+              <CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4" /> Tema</CardTitle>
+              <CardDescription>Modalità chiara o scura</CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Le opzioni di personalizzazione del tema saranno disponibili in una versione futura.
+            <CardContent><ThemeToggle /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4" /> Tour iniziale</CardTitle>
+              <CardDescription>Rivedi la guida introduttiva</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" size="sm" onClick={() => setShowTour(true)}>Mostra tour</Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileDown className="h-4 w-4" /> Export
-              </CardTitle>
-              <CardDescription>Opzioni di esportazione dati (prossimamente)</CardDescription>
+              <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" /> Notifiche browser</CardTitle>
+              <CardDescription>Avvisi al completamento delle analisi</CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Le funzionalità di esportazione massiva saranno disponibili in una versione futura.
+            <CardContent>
+              <Button variant="outline" size="sm" onClick={async () => {
+                const ok = await requestNotificationPermission();
+                toast({ title: ok ? "Notifiche attive" : "Notifiche non concesse" });
+              }}>Abilita notifiche</Button>
             </CardContent>
           </Card>
         </div>
