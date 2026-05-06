@@ -8,8 +8,10 @@ import { requestNotificationPermission } from "@/hooks/useBrowserNotifications";
 import { toast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const [showTour, setShowTour] = useState(false);
   return (
     <div className="flex-1 overflow-auto">
+      {showTour && <OnboardingTour forceOpen onClose={() => setShowTour(false)} />}
       <div className="max-w-3xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-semibold text-foreground mb-6">Impostazioni</h1>
 
