@@ -123,12 +123,17 @@ export function ReportView({
               </div>
             </div>
           </div>
-          <DownloadDialog
-            onExportPdf={onExportPdf}
-            onExportDocx={onExportDocx || (() => {})}
-            markdown={reportMessage?.content || ""}
-            titoloPratica={titoloPratica}
-          />
+          <div className="flex items-center gap-2">
+            {caseId && onRestoreVersion && (
+              <VersionHistory caseId={caseId} onRestore={onRestoreVersion} />
+            )}
+            <DownloadDialog
+              onExportPdf={onExportPdf}
+              onExportDocx={onExportDocx || (() => {})}
+              markdown={reportMessage?.content || ""}
+              titoloPratica={titoloPratica}
+            />
+          </div>
         </div>
 
         {/* Report body */}
