@@ -47,6 +47,9 @@ export function ReportView({
   onSendFollowUp,
   onExportPdf,
   onExportDocx,
+  caseId,
+  onRestoreVersion,
+  onRegenerateSection,
 }: ReportViewProps) {
   const [followUpInput, setFollowUpInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
