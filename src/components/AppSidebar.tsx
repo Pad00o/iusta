@@ -1,23 +1,17 @@
-import { MessageSquare, FolderClock, Settings, Scale, FileText } from "lucide-react";
+import { MessageSquare, FolderClock, Settings, Scale, FileText, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { title: "Analisi", url: "/", icon: MessageSquare },
   { title: "Storico", url: "/storico", icon: FolderClock },
   { title: "Modelli", url: "/modelli", icon: FileText },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -38,12 +32,8 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <h2 className="text-sm font-semibold text-sidebar-foreground leading-tight">
-                IUSTA
-              </h2>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                Infortunistica Stradale
-              </p>
+              <h2 className="text-sm font-semibold text-sidebar-foreground leading-tight">IUSTA</h2>
+              <p className="text-[11px] text-muted-foreground leading-tight">Infortunistica Stradale</p>
             </div>
           )}
         </div>
@@ -56,10 +46,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                  >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
@@ -76,6 +63,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-2">
+        <ThemeToggle collapsed={collapsed} />
+      </SidebarFooter>
     </Sidebar>
   );
 }
