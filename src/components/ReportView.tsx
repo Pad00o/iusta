@@ -355,18 +355,23 @@ export function ReportView({
 
         {/* Follow-up chat input */}
         <div className="border-t border-border bg-card px-4 py-3 flex-shrink-0">
-          <div className="max-w-4xl mx-auto flex gap-2">
-            <Textarea
-              value={followUpInput}
-              onChange={(e) => setFollowUpInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Chiedi ulteriori approfondimenti sull'analisi..."
-              className="min-h-[40px] max-h-[100px] resize-none text-sm"
-              disabled={isLoading}
-            />
-            <Button onClick={handleSend} disabled={isLoading || !followUpInput.trim()} className="h-auto">
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="max-w-4xl mx-auto">
+            {reportMessage && !isLoading && (
+              <QuickFollowupButtons onSend={onSendFollowUp} disabled={isLoading} />
+            )}
+            <div className="flex gap-2">
+              <Textarea
+                value={followUpInput}
+                onChange={(e) => setFollowUpInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Chiedi ulteriori approfondimenti sull'analisi..."
+                className="min-h-[40px] max-h-[100px] resize-none text-sm"
+                disabled={isLoading}
+              />
+              <Button onClick={handleSend} disabled={isLoading || !followUpInput.trim()} className="h-auto">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
