@@ -1,5 +1,11 @@
-import { Settings as SettingsIcon, Info, Palette, FileDown } from "lucide-react";
+import { useState } from "react";
+import { Settings as SettingsIcon, Info, Palette, FileDown, BookOpen, Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { OnboardingTour } from "@/components/OnboardingTour";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { requestNotificationPermission } from "@/hooks/useBrowserNotifications";
+import { toast } from "@/hooks/use-toast";
 
 export default function Settings() {
   return (
