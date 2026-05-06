@@ -1,129 +1,127 @@
-## Piano: Loading bar neon, export PDF/TXT corretti, apertura Google Docs e miglioramenti UI/UX
+## Piano: Estensione completa backend, funzionalità e UI di IUSTA
 
-### 1. Barra di caricamento neon stile foto
+Il piano copre **15 richieste** raggruppate in 3 aree. Data l'estensione, propongo di implementare tutto in un'unica iterazione coerente.
 
-Sostituire l'attuale spinner "puntini" con una barra di caricamento azzurra luminosa (effetto neon glow) animata mentre l'AI analizza:
+---
 
-- Nuovo componente `src/components/NeonProgressBar.tsx`: barra orizzontale con gradient `from-cyan-400 via-blue-400 to-cyan-300`, `box-shadow` blu (effetto bagliore), animazione fill 0→95% durante streaming, snap a 100% quando `onDone`
-- Etichetta "Analisi in corso..." con percentuale dinamica
-- Stati testuali rotanti per dare feedback ("Estrazione testo dai documenti...", "Cross-check contraddizioni...", "Identificazione violazioni CdS...", "Redazione bozza atto...")
-- Mostrato in `Index.tsx` nella fase `processing` (prima che arrivi il primo chunk) e in `ReportView.tsx` in cima allo scroll quando `isLoading && !reportMessage`
+### 🗄️ BACKEND
 
-### 2. Export PDF reale (non più HTML rinominato)
+**1. Storage file caricati**
+- Nuovo bucket privato `case-files` (migrazione SQL + policy public read finché non c'è auth)
+- Modificare `Index.tsx`: dopo l'upload, prima di chiamare `chat`, caricare ogni file su `case-files/{caseId}/{filename}`
+- Nuova colonna `cases.uploaded_files JSONB` (array di `{name, path, size, type}`)
+- Nello `Storico`, mostrare i file allegati con bottone "Ri-analizza"
 
-L'attuale edge function `generate-pdf` restituisce HTML — il browser non lo apre come PDF. Sostituire con generazione PDF vera:
+**2. Campo `report_summary`**
+- Nuova colonna `cases.report_summary TEXT` (3 bullet)
+- Edge function dedicata `summarize-case` chiamata automaticamente al termine dell'analisi (Lovable AI, gemini-2.5-flash-lite, prompt: "estrai 3 bullet chiave dal report")
+- Mostrato nelle card dello Storico sotto il titolo
 
-- Riscrivere `supabase/functions/generate-pdf/index.ts` usando **jsPDF** (`https://esm.sh/jspdf@2.5.1`) + **jspdf-autotable** per le tabelle
-- Parser markdown → istruzioni jsPDF: titoli (size/colore differenziati), paragrafi con word-wrap, tabelle con autoTable, bullet list, blockquote per "Svolgimento del Fatto" con sfondo crema
-- Header con logo testuale "⚖️ IUSTA" e linea blu, footer con numero pagina e data
-- Font: Helvetica (built-in, leggibile, professionale). Niente emoji renderizzati come testo (li sostituiamo con marker testuali tipo "[!]", "[OK]") per evitare i quadratini
-- Content-Type: `application/pdf`, filename `.pdf`
-- Stile testuale chiaro: titoli sezione 14pt bold blu navy, corpo 11pt nero, line-height 1.5, margini 2cm
+**3. Campo `cases.status`**
+- Enum `case_status` (`bozza`, `completato`, `archiviato`)
+- Default `bozza`, `completato` quando l'analisi finisce
+- Filtri nello Storico per status, bottone "Archivia" sulla card
 
-### 3. Export DOCX → in realtà file `.txt` leggibile
+**4. Edge function `regenerate-section`**
+- Riceve `{ caseId, sectionTitle, currentReport }`, rigenera SOLO quella sezione
+- Bottone "Rigenera sezione" su ogni heading H2/H3 in `ReportView.tsx`
 
-L'utente vuole semplicemente leggere il testo, non l'HTML soup. Trasformare la funzione `generate-docx` in generazione di **plain text formattato**:
+**5. Logging analisi**
+- Nuova tabella `analysis_logs` (`case_id`, `model`, `duration_ms`, `tokens_input`, `tokens_output`, `mode`, `created_at`)
+- L'edge function `chat` scrive una riga al termine dello stream (con `usage` ritornato dal modello)
+- Pagina `Analytics` minima sotto Settings con grafici aggregati (media durata, casi/giorno)
 
-- Riscrivere `generate-docx/index.ts`: convertire markdown → testo strutturato:
-  - `# Titolo` → `═══ TITOLO ═══` in maiuscolo
-  - `## Sezione` → `── Sezione ──`
-  - `### Sottosezione` → `• Sottosezione`
-  - Tabelle markdown → tabelle ASCII allineate (padding colonne)
-  - Bullet `-` → `  • `
-  - `**bold**` → testo nudo (no markup)
-  - Rimuovere tag HTML residui
-  - Line-wrap a 100 caratteri
-- Header testuale:
-  ```
-  ════════════════════════════════════════
-       IUSTA — Report Analisi Tecnico-Giuridica
-  ════════════════════════════════════════
-  Pratica: ...
-  Data: ...
-  ```
-- Footer testuale con data generazione
-- Content-Type: `text/plain; charset=utf-8`, filename `.txt`
-- Aggiornare `DownloadDialog.tsx`: rinominare voce "DOCX" → "Testo (.txt)" con descrizione "File di testo semplice, leggibile ovunque"
-- Aggiornare `Index.tsx` `handleExportDocx`: cambiare extension `.doc` → `.txt`
+---
 
-### 4. Apertura diretta in Google Docs
+### ⚙️ FUNZIONALITÀ
 
-Per aprire davvero il documento in Google Docs (non scaricare HTML), serve che il file sia **accessibile via URL pubblico**: poi possiamo aprire l'importer di Google.
+**6. Cartelle/etichette migliorato**
+- Già esiste `folders`. Aggiungere drag&drop case→folder nello Storico
+- Bottone "Nuova cartella" inline, rinomina/elimina cartella
 
-- Nuova edge function `upload-report` (o estensione di `generate-pdf`):
-  - Genera l'HTML formattato del report
-  - Lo carica su **Supabase Storage** in un bucket pubblico `reports` (creato via migrazione, public read)
-  - Ritorna URL pubblico
-- Nel `DownloadDialog`, voce "Google Documenti":
-  1. Chiama l'edge function per generare e uploadare HTML
-  2. Apre in nuova tab: `https://docs.google.com/viewer?url=<ENCODED_URL>` (visualizzazione) **oppure** `https://docs.google.com/document/u/0/?usp=docs_alc&urp=` con istruzione "File → Importa" (limite Google: l'auto-import di un URL esterno richiede OAuth Drive del singolo utente)
-- Approccio pragmatico raccomandato (no OAuth utente): **Google Docs Viewer** read-only via URL pubblico — apre direttamente il file in una pagina Google. Per modifica reale sarà necessaria un'integrazione OAuth Drive futura (segnalata)
-- Migrazione SQL: creare bucket pubblico `reports` con policy lettura pubblica e scrittura solo da service role
+**7. Confronto tra casi**
+- Modalità "Confronta": selezione multipla nello Storico, bottone "Confronta (2)"
+- Pagina `/confronta?ids=a,b` con due colonne side-by-side dei report + diff highlight delle responsabilità %
 
-### 5. Miglioramenti UI/UX dell'analisi
+**8. Template follow-up rapidi**
+- Pulsanti preconfigurati sopra l'input nella fase report: "Calcola danno biologico", "Stima risarcimento", "Estrai testimoni", "Genera atto di citazione"
+- Click → invia automaticamente il prompt corrispondente all'AI
 
-Modifiche per rendere l'analisi più comprensibile:
+**9. Esportazione multipla ZIP**
+- Selezione multipla nello Storico → bottone "Esporta selezionati"
+- Edge function `export-cases-zip` che genera ZIP (libreria `jszip` via esm.sh) con un PDF per ogni caso
 
-**A. Pagina upload (`Index.tsx` fase upload)**:
-- Aggiungere card riassuntiva con icone colorate dei 3 step (Carica → Configura → Analizza) sopra al form, per mostrare il flusso
-- Tooltip su ogni opzione di `AnalysisSettings` (es. cosa fa "OCR avanzato", cosa significa "Anonimizzazione")
-- Bottone "Avvia analisi" più grande con icona pulsante quando ci sono file caricati
+**10. Versioning report**
+- Nuova tabella `case_versions` (`case_id`, `snapshot JSONB`, `created_at`, `label`)
+- Snapshot automatico prima di ogni follow-up
+- Pannello "Cronologia versioni" in `ReportView.tsx` con possibilità di ripristino
 
-**B. Pagina processing**:
-- Schermata dedicata con barra neon centrale, log live degli step ("Lettura file 1/3...", "Estrazione testo OCR...", "Analisi GPT in corso...")
-- Indicatore tempo elapsed (no stima totale, solo "00:42")
+**11. Notifiche browser**
+- Richiesta permesso `Notification` al primo "Avvia analisi"
+- Notifica quando l'analisi finisce e il tab non è attivo (`document.hidden`)
 
-**C. Pagina report (`ReportView.tsx`)**:
-- Toolbar sticky in cima con: bottone Scarica + bottone "Copia testo" + bottone "Riassumi in 3 punti" (chiama AI follow-up automatico)
-- Sezione "Riepilogo esecutivo" generata automaticamente in cima (3-5 bullet chiave estratti dal report) — collassabile
-- Highlight key facts: card colorata in cima con i 3 dati più importanti (responsabilità %, articoli CdS principali, prognosi)
-- Mini-mappa di scroll a destra con indicatori colorati delle sezioni critiche
-- Modalità "Stampa amichevole" (toggle per nascondere indice e mostrare layout pulito)
+---
 
-### 6. Miglioramenti generali sistema (suggerimenti aggiuntivi)
+### 🎨 UI GENERALE
 
-**Backend**:
-- Salvare anche i file caricati (non solo i messaggi) in Supabase Storage per ri-analizzare casi vecchi
-- Aggiungere campo `report_summary` in tabella `cases` (3 bullet auto-generati) per anteprima rapida nello Storico
-- Aggiungere status `cases.status` (`bozza`, `completato`, `archiviato`)
-- Edge function `regenerate-section`: rigenera solo una sezione specifica del report (es. solo "Svolgimento del Fatto")
-- Logging strutturato delle analisi (durata, tokens, modello usato) per analytics
+**12. Tema chiaro/scuro**
+- `ThemeProvider` (next-themes già non installato → usare local context con `localStorage` + class su `<html>`)
+- Toggle in `AppSidebar` footer (icona sole/luna)
+- Verificare che tutti i token semantici di `index.css` abbiano variante `.dark`
 
-**Funzionalità**:
-- Sistema di **cartelle/etichette** per organizzare casi nello Storico (già parzialmente con `folder` field)
-- **Confronto tra casi**: selezionare 2 casi e vedere differenze (utile per casi simili)
-- **Template di follow-up rapidi**: bottoni preconfigurati ("Calcola danno biologico", "Stima risarcimento", "Estrai testimoni")
-- **Esportazione multipla**: selezionare più casi nello Storico → ZIP con tutti i report
-- **Versioning report**: salvare snapshot quando si fanno follow-up, per tornare a versioni precedenti
-- **Notifiche browser** quando l'analisi è completa (utile per analisi lunghe)
+**13. Command palette Cmd+K**
+- Componente `CommandPalette.tsx` usando `cmdk` (già nelle deps via shadcn `command.tsx`)
+- Listener globale `Cmd/Ctrl+K`, lista casi recenti, navigazione rapida (Nuova analisi, Storico, Modelli, Settings), ricerca full-text titolo caso
 
-**UI generale**:
-- Tema chiaro/scuro toggle
-- Shortcut tastiera (Cmd+K command palette per navigare casi)
-- Onboarding tour al primo accesso
-- Stato "offline" gestito con messaggio chiaro
+**14. Onboarding tour**
+- Componente `OnboardingTour.tsx` con tooltip step-by-step (4 step: Sidebar, Upload, Settings, Storico)
+- Mostrato solo al primo accesso (`localStorage.iusta_onboarding_done`)
+- Bottone "Mostra tour" in Settings per rivederlo
 
-**Sicurezza/Auth** (priorità alta):
-- Implementare autenticazione utente (email + Google OAuth) — attualmente i casi sono pubblicamente leggibili da chiunque
-- RLS sui casi: solo il proprietario vede i propri
-- Audit log accessi
+**15. Stato offline**
+- Hook `useOnlineStatus` (`navigator.onLine` + listener)
+- Banner sticky in cima quando offline: "Sei offline. Le analisi non sono disponibili."
+- Disabilitare bottoni "Avvia analisi" quando offline
+
+---
 
 ### File coinvolti
 
-- **Nuovi**: 
-  - `src/components/NeonProgressBar.tsx`
-  - `src/components/ProcessingScreen.tsx` (schermata processing dedicata)
-  - `supabase/migrations/<timestamp>_reports_bucket.sql` (bucket Storage pubblico)
-- **Modificati**:
-  - `supabase/functions/generate-pdf/index.ts` (jsPDF reale)
-  - `supabase/functions/generate-docx/index.ts` (output .txt formattato)
-  - `src/components/DownloadDialog.tsx` (rinomina DOCX→TXT, Google Docs via URL pubblico)
-  - `src/pages/Index.tsx` (extension .txt, integrare ProcessingScreen e NeonProgressBar)
-  - `src/components/ReportView.tsx` (toolbar sticky, riepilogo esecutivo, highlight cards)
-  - `src/components/AnalysisSettings.tsx` (tooltip)
+**Migrazioni SQL**
+- Bucket `case-files`, colonne `cases.uploaded_files/report_summary/status`, tabelle `analysis_logs`/`case_versions`
 
-### Note tecniche
+**Nuove edge functions**
+- `summarize-case/index.ts`
+- `regenerate-section/index.ts`
+- `export-cases-zip/index.ts`
 
-- jsPDF non supporta nativamente emoji nei font built-in: li sostituiremo con marker testuali nel PDF (la versione web continua a mostrare gli emoji)
-- Google Docs "apri direttamente" con modifica richiede OAuth utente Drive — per ora apriamo Google Docs Viewer (read-only) via URL pubblico. Per modifica reale serve setup OAuth dedicato (proposta futura)
-- Il bucket Storage `reports` sarà pubblico: i file conterranno solo dati già anonimizzati dall'opzione "Anonimizzazione"
+**Edge function modificate**
+- `chat/index.ts` (logging usage)
+
+**Nuovi componenti**
+- `src/components/ThemeToggle.tsx`
+- `src/contexts/ThemeContext.tsx`
+- `src/components/CommandPalette.tsx`
+- `src/components/OnboardingTour.tsx`
+- `src/components/OfflineBanner.tsx`
+- `src/components/CaseCompare.tsx`
+- `src/components/VersionHistory.tsx`
+- `src/components/QuickFollowupButtons.tsx`
+- `src/hooks/useOnlineStatus.ts`
+- `src/hooks/useBrowserNotifications.ts`
+- `src/pages/Confronta.tsx`
+- `src/pages/Analytics.tsx`
+
+**Modificati**
+- `src/pages/Index.tsx` (upload file → storage, notifiche, snapshot, follow-up buttons)
+- `src/pages/Storico.tsx` (selezione multipla, drag&drop, summary, filtri status, ZIP export)
+- `src/components/ReportView.tsx` (rigenera sezione, version history, quick followups)
+- `src/components/AppLayout.tsx` (ThemeProvider, OfflineBanner, OnboardingTour, CommandPalette)
+- `src/components/AppSidebar.tsx` (theme toggle)
+- `src/lib/case-storage.ts` (nuovi campi)
+- `src/App.tsx` (nuove route)
+
+### Note
+- Niente autenticazione in questo passaggio (i policy restano `true` come oggi); va aggiunta in un prossimo step dedicato
+- Bucket `case-files` sarà pubblico finché non c'è auth — segnalo nel completamento
+- Modulo zip e jspdf già usati

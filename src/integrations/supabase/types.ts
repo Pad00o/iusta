@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_logs: {
+        Row: {
+          case_id: string | null
+          created_at: string
+          duration_ms: number | null
+          id: string
+          mode: string | null
+          model: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          mode?: string | null
+          model?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          mode?: string | null
+          model?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Relationships: []
+      }
+      case_versions: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          label: string | null
+          snapshot: Json
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          snapshot: Json
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       cases: {
         Row: {
           created_at: string
@@ -22,9 +79,12 @@ export type Database = {
           messages: Json
           note: string | null
           numero_pratica: string | null
+          report_summary: string | null
+          status: Database["public"]["Enums"]["case_status"]
           title: string
           titolo_pratica: string | null
           updated_at: string
+          uploaded_files: Json
         }
         Insert: {
           created_at?: string
@@ -33,9 +93,12 @@ export type Database = {
           messages?: Json
           note?: string | null
           numero_pratica?: string | null
+          report_summary?: string | null
+          status?: Database["public"]["Enums"]["case_status"]
           title?: string
           titolo_pratica?: string | null
           updated_at?: string
+          uploaded_files?: Json
         }
         Update: {
           created_at?: string
@@ -44,9 +107,12 @@ export type Database = {
           messages?: Json
           note?: string | null
           numero_pratica?: string | null
+          report_summary?: string | null
+          status?: Database["public"]["Enums"]["case_status"]
           title?: string
           titolo_pratica?: string | null
           updated_at?: string
+          uploaded_files?: Json
         }
         Relationships: []
       }
@@ -76,7 +142,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      case_status: "bozza" | "completato" | "archiviato"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -203,6 +269,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      case_status: ["bozza", "completato", "archiviato"],
+    },
   },
 } as const
