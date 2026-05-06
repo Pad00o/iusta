@@ -179,15 +179,26 @@ export function ReportView({
                         id = "note-privacy"; borderColor = "border-l-gray-400"; Icon = Eye; iconColor = "text-gray-500"; bgColor = "bg-muted/50";
                       }
 
+                      const sectionTitle = String(children);
                       return (
                         <div
                           id={id}
-                          className={`scroll-mt-4 not-prose border-l-4 ${borderColor} ${bgColor} rounded-r-lg px-4 py-3 mb-4 mt-8 flex items-center gap-3 shadow-sm border border-border`}
+                          className={`scroll-mt-4 not-prose border-l-4 ${borderColor} ${bgColor} rounded-r-lg px-4 py-3 mb-4 mt-8 flex items-center gap-3 shadow-sm border border-border group`}
                         >
                           <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
-                          <h2 className="text-sm font-bold text-foreground m-0 uppercase tracking-wide" {...props}>
+                          <h2 className="text-sm font-bold text-foreground m-0 uppercase tracking-wide flex-1" {...props}>
                             {children}
                           </h2>
+                          {onRegenerateSection && (
+                            <button
+                              onClick={() => onRegenerateSection(sectionTitle)}
+                              disabled={isLoading}
+                              title="Rigenera questa sezione"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                            >
+                              <RefreshCw className="h-3 w-3" /> Rigenera
+                            </button>
+                          )}
                         </div>
                       );
                     },
