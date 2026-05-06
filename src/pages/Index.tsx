@@ -107,14 +107,14 @@ const Index = () => {
       setCaseId(created.id);
     }
 
-    // Upload files to storage in background
+    // Upload files to storage in background (convert base64 → File)
     const uploaded: UploadedFileRef[] = [];
     for (const f of files) {
       try {
-        if (f.file) {
-          const ref = await uploadCaseFile(workingCaseId!, f.file);
-          uploaded.push(ref);
-        }
+        const bin = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
+        const file = new File([bin], f.name, { type: f.type });
+        const ref = await uploadCaseFile(workingCaseId!, file);
+        uploaded.push(ref);
       } catch (e) { console.warn("upload failed", f.name, e); }
     }
     uploadedFilesRef.current = uploaded;
