@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,9 +8,11 @@ import { Send, Scale, FileText, Clock, AlertTriangle, Shield, CheckCircle, BookO
 import type { Message } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { NeonProgressBar } from "@/components/NeonProgressBar";
+import { AnalysisChecklist } from "@/components/AnalysisChecklist";
 import { QuickFollowupButtons } from "@/components/QuickFollowupButtons";
 import { VersionHistory } from "@/components/VersionHistory";
+import { ContradictionModal, type ContradictionData } from "@/components/ContradictionModal";
+import { SmartDraftingSidebar } from "@/components/SmartDraftingSidebar";
 
 interface ReportViewProps {
   messages: Message[];
