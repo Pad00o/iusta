@@ -286,23 +286,36 @@ export function ReportView({
                     ),
                     li: ({ children, ...props }) => {
                       const text = String(children);
-                      if (text.includes("⚠️")) {
+                      const isContradiction = text.includes("⚠️") || text.includes("BUGIA TECNICA") || text.includes("SMENTITA") || text.includes("INCONGRUENZA") || text.includes("CONTRADDIZ");
+                      if (isContradiction) {
+                        const titleMatch = text.match(/(BUGIA TECNICA|SMENTITA[^:]*|INCONGRUENZA[^:]*|CONTRADDIZ[^:]*)/i);
+                        const title = titleMatch ? titleMatch[0] : "Contraddizione rilevata";
                         return (
-                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20" {...props}>
-                            {children}
+                          <li
+                            {...props}
+                            onClick={() => handleContradictionClick(title, text)}
+                            className="list-none -ml-4 my-2 p-3 rounded-2xl bg-destructive/10 border border-destructive/30 cursor-pointer hover:bg-destructive/15 hover:shadow-elegant transition-all group"
+                          >
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">{children}</div>
+                              <span className="text-[10px] uppercase tracking-wider font-semibold text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                Apri prova ↗
+                              </span>
+                            </div>
                           </li>
                         );
                       }
                       if (text.includes("⚖️")) {
                         return (
-                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20" {...props}>
+                          <li className="list-none -ml-4 my-2 p-3 rounded-2xl bg-primary/10 border border-primary/20" {...props}>
                             {children}
                           </li>
                         );
                       }
                       if (text.includes("🛠️")) {
                         return (
-                          <li className="list-none -ml-4 my-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20" {...props}>
+                          <li className="list-none -ml-4 my-2 p-3 rounded-2xl bg-secondary border border-border/10" {...props}>
                             {children}
                           </li>
                         );
@@ -332,7 +345,7 @@ export function ReportView({
 
             {isLoading && !reportMessage && (
               <div className="py-12">
-                <NeonProgressBar active={isLoading} done={false} />
+                <AnalysisChecklist active={isLoading} />
               </div>
             )}
 
