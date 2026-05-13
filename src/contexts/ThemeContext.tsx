@@ -12,8 +12,8 @@ const Ctx = createContext<ThemeCtx | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("iusta_theme") as Theme) || "light";
+    if (typeof window === "undefined") return "dark";
+    return (localStorage.getItem("iusta_theme") as Theme) || "dark";
   });
 
   useEffect(() => {

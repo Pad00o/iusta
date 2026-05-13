@@ -58,10 +58,20 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      fontFamily: {
+        serif: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       borderRadius: {
+        '3xl': '1.5rem',
+        '2xl': '1.25rem',
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+      },
+      boxShadow: {
+        elegant: '0 10px 40px -10px hsl(224 60% 2% / 0.6)',
+        gold: '0 0 24px hsl(43 65% 53% / 0.25)',
       },
       keyframes: {
         "accordion-down": {
