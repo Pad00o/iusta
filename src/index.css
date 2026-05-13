@@ -4,91 +4,137 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 30% 15%;
+    /* Luxury Legal Tech — Navy ultra-dark + Gold */
+    --background: 224 60% 7%;            /* #0A0F1E */
+    --foreground: 40 30% 92%;            /* warm ivory */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 30% 15%;
+    --card: 224 50% 10%;
+    --card-foreground: 40 30% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 15%;
+    --popover: 224 55% 9%;
+    --popover-foreground: 40 30% 92%;
 
-    --primary: 220 60% 30%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 43 65% 53%;               /* #D4AF37 gold */
+    --primary-foreground: 224 60% 7%;
 
-    --secondary: 215 25% 93%;
-    --secondary-foreground: 220 30% 20%;
+    --secondary: 224 35% 14%;
+    --secondary-foreground: 40 30% 92%;
 
-    --muted: 215 20% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 224 30% 14%;
+    --muted-foreground: 40 10% 65%;
 
-    --accent: 215 25% 90%;
-    --accent-foreground: 220 30% 20%;
+    --accent: 224 40% 18%;
+    --accent-foreground: 40 30% 92%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 40 30% 95%;
 
-    --border: 215 25% 88%;
-    --input: 215 25% 88%;
-    --ring: 220 60% 30%;
+    --border: 40 30% 92%;                /* used with /10 opacity for glass */
+    --input: 224 35% 16%;
+    --ring: 43 65% 53%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 224 55% 6%;
+    --sidebar-foreground: 40 20% 80%;
+    --sidebar-primary: 43 65% 53%;
+    --sidebar-primary-foreground: 224 60% 7%;
+    --sidebar-accent: 224 40% 12%;
+    --sidebar-accent-foreground: 40 30% 92%;
+    --sidebar-border: 224 30% 14%;
+    --sidebar-ring: 43 65% 53%;
+
+    /* gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(43 70% 60%), hsl(38 75% 50%));
+    --gradient-navy: linear-gradient(180deg, hsl(224 60% 7%), hsl(224 55% 4%));
+    --shadow-elegant: 0 10px 40px -10px hsl(224 60% 2% / 0.6);
+    --shadow-gold-glow: 0 0 24px hsl(43 65% 53% / 0.25);
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    --background: 224 60% 7%;
+    --foreground: 40 30% 92%;
+    --card: 224 50% 10%;
+    --card-foreground: 40 30% 92%;
+    --popover: 224 55% 9%;
+    --popover-foreground: 40 30% 92%;
+    --primary: 43 65% 53%;
+    --primary-foreground: 224 60% 7%;
+    --secondary: 224 35% 14%;
+    --secondary-foreground: 40 30% 92%;
+    --muted: 224 30% 14%;
+    --muted-foreground: 40 10% 65%;
+    --accent: 224 40% 18%;
+    --accent-foreground: 40 30% 92%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 40 30% 95%;
+    --border: 40 30% 92%;
+    --input: 224 35% 16%;
+    --ring: 43 65% 53%;
+    --sidebar-background: 224 55% 6%;
+    --sidebar-foreground: 40 20% 80%;
+    --sidebar-primary: 43 65% 53%;
+    --sidebar-primary-foreground: 224 60% 7%;
+    --sidebar-accent: 224 40% 12%;
+    --sidebar-accent-foreground: 40 30% 92%;
+    --sidebar-border: 224 30% 14%;
+    --sidebar-ring: 43 65% 53%;
+  }
 
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
+  html {
+    color-scheme: dark;
+  }
 
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217 70% 55%;
-    --primary-foreground: 222 47% 6%;
-
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 27% 84%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  /* Force dark theme as default for the luxury aesthetic */
+  html:not(.light) {
+    color-scheme: dark;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border) / 0.1);
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    background-image:
+      radial-gradient(1200px 600px at 20% -10%, hsl(43 65% 53% / 0.06), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, hsl(220 80% 50% / 0.08), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    @apply font-serif tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.08);
+  }
+  .glass-strong {
+    background: hsl(var(--card) / 0.75);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsl(var(--border) / 0.12);
+  }
+  .gold-text {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .gold-bg {
+    background: var(--gradient-gold);
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+  .shadow-gold-glow {
+    box-shadow: var(--shadow-gold-glow);
   }
 }
