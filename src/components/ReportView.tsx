@@ -55,6 +55,7 @@ export function ReportView({
 }: ReportViewProps) {
   const [followUpInput, setFollowUpInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [contradiction, setContradiction] = useState<ContradictionData | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -78,6 +79,25 @@ export function ReportView({
 
   const reportMessage = messages.find((m) => m.role === "assistant");
   const followUpMessages = messages.slice(reportMessage ? messages.indexOf(reportMessage) + 1 : messages.length);
+
+  const userMessage = messages.find((m) => m.role === "user");
+  const sourceText = userMessage?.content || "";
+
+  const handleContradictionClick = (label: string, body: string) => {
+    const keywords = body.match(/\b[A-ZÀ-Ü][a-zà-ü]{4,}\b/g)?.slice(0, 5) || [];
+    let excerpt = "";
+    for (const kw of keywords) {
+      const re = new RegExp(`[^.\\n]*${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^.\\n]*\\.`, "i");
+      const m = sourceText.match(re);
+      if (m) { excerpt = m[0].trim(); break; }
+    }
+    setContradiction({
+      title: label,
+      body: body.replace(/\*\*/g, ""),
+      excerpt,
+      source: "Estratto dal fascicolo caricato",
+    });
+  };
 
   return (
     <div className="flex flex-1 overflow-hidden">
