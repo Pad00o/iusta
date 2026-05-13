@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Play, Settings2, Sparkles } from "lucide-react";
+import { Play, Settings2, Sparkles, FileUp, Scale, Gavel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileUploadZone } from "@/components/FileUploadZone";
@@ -8,6 +8,8 @@ import { AnalysisStepper } from "@/components/AnalysisStepper";
 import { AnalysisSettings } from "@/components/AnalysisSettings";
 import { CaseInfoForm } from "@/components/CaseInfoForm";
 import { ReportView } from "@/components/ReportView";
+import { AnalysisChecklist } from "@/components/AnalysisChecklist";
+import { BentoGrid, BentoCard } from "@/components/BentoGrid";
 import { streamChat } from "@/lib/chat-stream";
 import { saveCase, getCase, uploadCaseFile, saveCaseVersion, type UploadedFileRef } from "@/lib/case-storage";
 import { useAnalysis } from "@/contexts/AnalysisContext";
@@ -325,14 +327,17 @@ const Index = () => {
   const lastMessage = messages[messages.length - 1];
   const isStreaming = isLoading && lastMessage?.role === "assistant";
 
+  const lastAssistant = messages.find((m) => m.role === "assistant");
+  const streamedChars = lastAssistant?.content?.length || 0;
+
   if (phase === "report" || (phase === "processing" && messages.length > 0)) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <div className="border-b border-border/10 glass px-4 py-2 flex items-center justify-between flex-shrink-0">
           <AnalysisStepper currentStep={currentStep} />
           <Button
             onClick={() => { uploadedFilesRef.current = []; reset(); }}
-            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-md hover:shadow-lg transition-all gap-2"
+            className="gold-bg text-primary-foreground shadow-gold-glow hover:opacity-90 transition-all gap-2 font-semibold"
             size="sm"
           >
             <Sparkles className="h-4 w-4" />
@@ -356,9 +361,23 @@ const Index = () => {
     );
   }
 
+  // === Processing state (no messages yet): show luxury checklist
+  if (phase === "processing") {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="border-b border-border/10 glass px-4 py-2 flex items-center justify-between flex-shrink-0">
+          <AnalysisStepper currentStep={currentStep} />
+        </div>
+        <div className="flex-1 flex items-center justify-center px-6">
+          <AnalysisChecklist active={isLoading} streamedChars={streamedChars} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="border-b border-border bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <div className="border-b border-border/10 glass px-4 py-2 flex items-center justify-between flex-shrink-0">
         <AnalysisStepper currentStep={currentStep} />
         <Button
           variant="ghost"
@@ -372,30 +391,76 @@ const Index = () => {
 
       <div className="flex flex-1 overflow-hidden">
         <ScrollArea className="flex-1">
-          <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-3">Carica documenti</h2>
-              <FileUploadZone files={files} onFilesChange={setFiles} />
+          <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+            {/* Hero */}
+            <div className="flex items-end justify-between gap-6 mb-2">
+              <div>
+                <h1 className="font-serif text-4xl md:text-5xl text-foreground leading-tight">
+                  Nuova <span className="gold-text">Analisi</span>
+                </h1>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xl">
+                  Carica i documenti del sinistro. IUSTA elaborerà un report tecnico-giuridico di precisione chirurgica.
+                </p>
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+                <Gavel className="h-3.5 w-3.5 text-primary" />
+                <span>Infortunistica Stradale · Italia</span>
+              </div>
             </div>
 
-            <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
+            {/* Bento Grid */}
+            <BentoGrid>
+              <BentoCard span="md:col-span-2 lg:col-span-3" accent>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-9 w-9 rounded-2xl gold-bg flex items-center justify-center shadow-gold-glow">
+                    <FileUp className="h-4 w-4 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-lg text-foreground leading-tight">Documenti del fascicolo</h2>
+                    <p className="text-xs text-muted-foreground">PDF, immagini, perizie. Trascina o seleziona.</p>
+                  </div>
+                </div>
+                <FileUploadZone files={files} onFilesChange={setFiles} />
+              </BentoCard>
 
-            <div className="flex items-center gap-4">
-              <Button
-                size="lg"
-                onClick={handleStartAnalysis}
-                disabled={files.length === 0 || isLoading || !online}
-                className="px-8 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg transition-all"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                {online ? "Avvia analisi" : "Offline"}
-              </Button>
-            </div>
+              <BentoCard span="lg:col-span-1 lg:row-span-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-9 w-9 rounded-2xl bg-secondary border border-border/10 flex items-center justify-center">
+                    <Scale className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-lg text-foreground leading-tight">Dettagli pratica</h2>
+                    <p className="text-xs text-muted-foreground">Identificativi e note</p>
+                  </div>
+                </div>
+                <CaseInfoForm info={caseInfo} onChange={setCaseInfo} />
+              </BentoCard>
+
+              <BentoCard span="md:col-span-2 lg:col-span-3">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="font-serif text-base text-foreground">Pronto ad avviare</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {files.length === 0 ? "Carica almeno un documento per iniziare." : `${files.length} documento/i pronto/i per l'analisi.`}
+                    </p>
+                  </div>
+                  <Button
+                    size="lg"
+                    onClick={handleStartAnalysis}
+                    disabled={files.length === 0 || isLoading || !online}
+                    className="px-8 gold-bg text-primary-foreground shadow-gold-glow hover:opacity-90 font-semibold"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    {online ? "Avvia analisi" : "Offline"}
+                  </Button>
+                </div>
+              </BentoCard>
+            </BentoGrid>
           </div>
         </ScrollArea>
 
         <div
-          className={`${settingsOpen ? "w-72" : "w-0 lg:w-72"} flex-shrink-0 border-l border-border bg-card overflow-hidden transition-all duration-300`}
+          className={`${settingsOpen ? "w-72" : "w-0 lg:w-72"} flex-shrink-0 border-l border-border/10 glass overflow-hidden transition-all duration-300`}
         >
           <div className="w-72 p-4">
             <div className="flex items-center justify-between mb-4 lg:hidden">
