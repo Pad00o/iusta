@@ -1,127 +1,131 @@
-## Piano: Estensione completa backend, funzionalità e UI di IUSTA
 
-Il piano copre **15 richieste** raggruppate in 3 aree. Data l'estensione, propongo di implementare tutto in un'unica iterazione coerente.
+# Piano: Refactoring "Luxury Legal Tech" IUSTA
 
----
+## 1. Estetica & Branding
 
-### 🗄️ BACKEND
+**Tipografia**
+- Aggiungere Google Fonts in `index.html`: `Playfair Display` (titoli) + `Inter` (corpo)
+- `tailwind.config.ts`: estendere `fontFamily` con `serif: ["Playfair Display", ...]` e `sans: ["Inter", ...]`
+- `index.css`: applicare `font-serif` automaticamente a `h1, h2, h3` via `@layer base`
 
-**1. Storage file caricati**
-- Nuovo bucket privato `case-files` (migrazione SQL + policy public read finché non c'è auth)
-- Modificare `Index.tsx`: dopo l'upload, prima di chiamare `chat`, caricare ogni file su `case-files/{caseId}/{filename}`
-- Nuova colonna `cases.uploaded_files JSONB` (array di `{name, path, size, type}`)
-- Nello `Storico`, mostrare i file allegati con bottone "Ri-analizza"
+**Palette (HSL semantici in `index.css`)**
+- `--background: 224 60% 7%` (Navy ultra-dark #0A0F1E)
+- `--foreground: 40 30% 92%` (avorio caldo)
+- `--card: 224 50% 10%` con `--card-glass` per glassmorphism
+- `--primary: 43 65% 53%` (Oro #D4AF37) — solo CTA/accenti
+- `--border: 40 30% 92% / 0.08` (bordi semi-trasparenti)
+- Tema dark di default (forzato); rimuovere/disabilitare toggle light per la dashboard principale
 
-**2. Campo `report_summary`**
-- Nuova colonna `cases.report_summary TEXT` (3 bullet)
-- Edge function dedicata `summarize-case` chiamata automaticamente al termine dell'analisi (Lovable AI, gemini-2.5-flash-lite, prompt: "estrai 3 bullet chiave dal report")
-- Mostrato nelle card dello Storico sotto il titolo
+**Spaziatura**
+- `tailwind.config.ts`: estendere `spacing` scale +20% sui valori chiave
+- Sostituire `gap-4/p-4` → `gap-6/p-6` nei container principali
 
-**3. Campo `cases.status`**
-- Enum `case_status` (`bozza`, `completato`, `archiviato`)
-- Default `bozza`, `completato` quando l'analisi finisce
-- Filtri nello Storico per status, bottone "Archivia" sulla card
+## 2. Bento Grid Dashboard
 
-**4. Edge function `regenerate-section`**
-- Riceve `{ caseId, sectionTitle, currentReport }`, rigenera SOLO quella sezione
-- Bottone "Rigenera sezione" su ogni heading H2/H3 in `ReportView.tsx`
+- Nuovo componente `src/components/BentoGrid.tsx` + `BentoCard.tsx`
+- Refactor `src/pages/Index.tsx`: layout principale a griglia bento (4 colonne, righe variabili)
+  - Card grande: Upload/Nuova analisi
+  - Card: Casi recenti
+  - Card: Statistiche rapide (analisi totali, ore risparmiate)
+  - Card: Modelli salvati
+  - Card: Quick actions / templates
+- Stile card: `rounded-3xl` (24px), `border border-white/8`, `bg-white/[0.03] backdrop-blur-xl`, `shadow-[0_8px_40px_rgba(0,0,0,0.4)]`
+- Hover: leggero glow oro + lift `translate-y-[-2px]`
 
-**5. Logging analisi**
-- Nuova tabella `analysis_logs` (`case_id`, `model`, `duration_ms`, `tokens_input`, `tokens_output`, `mode`, `created_at`)
-- L'edge function `chat` scrive una riga al termine dello stream (con `usage` ritornato dal modello)
-- Pagina `Analytics` minima sotto Settings con grafici aggregati (media durata, casi/giorno)
+## 3. Checklist di caricamento dinamica
 
----
+- Nuovo `src/components/AnalysisChecklist.tsx` che sostituisce `NeonProgressBar` durante l'analisi
+- 4 step con stato `pending | running | done`:
+  1. Estrazione testo da PDF e OCR
+  2. Calcolo velocità cinematica e dinamica
+  3. Verifica coerenza testimoniale e cross-check
+  4. Generazione report finale e bozza legale
+- Icone: `Loader2` (spin) durante `running`, `Check` oro per `done`, `Circle` muted per `pending`
+- Animazione fade-in per ogni step + linea di connessione tra step
+- Avanzamento basato su tempo simulato + eventi reali dello stream (token chunks)
+- Integrare in `src/pages/Index.tsx` e `src/components/ReportView.tsx`
 
-### ⚙️ FUNZIONALITÀ
+## 4. Report Interattivo
 
-**6. Cartelle/etichette migliorato**
-- Già esiste `folders`. Aggiungere drag&drop case→folder nello Storico
-- Bottone "Nuova cartella" inline, rinomina/elimina cartella
+**Highlight contraddizioni**
+- Parser markdown nel `ReportView.tsx`: rilevare blocchi marcati `⚠️ BUGIA TECNICA`, `⚖️ SMENTITA TESTIMONIALE`, o pattern `**Contraddizione:**`
+- Wrappare in `<ContradictionMark>` con sfondo `bg-red-500/10`, bordo `border-red-400/30`, testo leggibile
+- Click → apre `ContradictionModal.tsx` (Dialog shadcn) che mostra:
+  - Titolo contraddizione
+  - "Ritaglio" del documento originale (estratto del testo dalla fonte) in card stile carta
+  - Spiegazione tecnica
+- Fonte estratta dai messages caricati (campo `uploaded_files` su `cases`)
 
-**7. Confronto tra casi**
-- Modalità "Confronta": selezione multipla nello Storico, bottone "Confronta (2)"
-- Pagina `/confronta?ids=a,b` con due colonne side-by-side dei report + diff highlight delle responsabilità %
+**Smart Drafting Sidebar**
+- Nuovo `src/components/SmartDraftingSidebar.tsx` (colonna destra sticky, larghezza ~340px)
+- Suggerimenti generati al termine dell'analisi via edge function `draft-suggestions` (Lovable AI Gemini Flash) che riceve il report e ritorna 5-8 suggerimenti per atto di citazione (oggetto, parti, fatto, diritto, conclusioni, richiesta danni)
+- Ogni suggerimento: card con icona oro, titolo, snippet, pulsante "Copia"
+- Toggle per nascondere/mostrare la sidebar; scroll sincronizzato col report
 
-**8. Template follow-up rapidi**
-- Pulsanti preconfigurati sopra l'input nella fase report: "Calcola danno biologico", "Stima risarcimento", "Estrai testimoni", "Genera atto di citazione"
-- Click → invia automaticamente il prompt corrispondente all'AI
+## 5. "Genera Fascicolo Pro"
 
-**9. Esportazione multipla ZIP**
-- Selezione multipla nello Storico → bottone "Esporta selezionati"
-- Edge function `export-cases-zip` che genera ZIP (libreria `jszip` via esm.sh) con un PDF per ogni caso
+- Pulsante primario oro in `ReportView.tsx` (in alto, vicino a Scarica)
+- Nuova edge function `generate-fascicolo` che:
+  - Genera PDF report (riusa logica `generate-pdf` migliorata, vedi §6)
+  - Genera DOCX professionale (vedi §6)
+  - Recupera file caricati da bucket `case-files` ed evidenzia (con marker testuali) le parti citate
+  - Crea ZIP con `jszip`: `Report.pdf`, `Bozza_Atto.docx`, `Documenti_Originali/*`, `Indice.txt`
+  - Ritorna ZIP scaricabile
+- UI: dialog di progresso con checklist (Generazione PDF → DOCX → Pacchetto ZIP)
 
-**10. Versioning report**
-- Nuova tabella `case_versions` (`case_id`, `snapshot JSONB`, `created_at`, `label`)
-- Snapshot automatico prima di ogni follow-up
-- Pannello "Cronologia versioni" in `ReportView.tsx` con possibilità di ripristino
+## 6. Fix CRITICO export documenti leggibili
 
-**11. Notifiche browser**
-- Richiesta permesso `Notification` al primo "Avvia analisi"
-- Notifica quando l'analisi finisce e il tab non è attivo (`document.hidden`)
+**Problema attuale**: PDF/DOCX/Google Docs producono HTML grezzo con tag `<h3>`, `<br/>`, `|` di tabelle markdown non parsati. Illeggibile.
 
----
+**Soluzione**
 
-### 🎨 UI GENERALE
+`generate-pdf` (riscrittura completa):
+- Parser markdown robusto via `marked` (npm import in Deno) → AST
+- Render con `jspdf` + `jspdf-autotable` (già presenti) ma usando l'AST, non regex line-by-line
+- Stile editoriale:
+  - Cover page: logo IUSTA testuale (Playfair simulato con bold), titolo pratica, data, "Report Tecnico-Giuridico"
+  - Tipografia: Helvetica per ora (jsPDF nativo) — titoli 18/14/12pt navy, corpo 11pt grigio scuro 1.5 line-height
+  - Tabelle parsate correttamente (header oro chiaro, righe alternate)
+  - Box "Contraddizione" rosso soft con bordo sinistro
+  - Header/footer su ogni pagina
+- Strip emoji (già fatto) ma preservare formattazione semantica
 
-**12. Tema chiaro/scuro**
-- `ThemeProvider` (next-themes già non installato → usare local context con `localStorage` + class su `<html>`)
-- Toggle in `AppSidebar` footer (icona sole/luna)
-- Verificare che tutti i token semantici di `index.css` abbiano variante `.dark`
+`generate-docx` (sostituzione completa):
+- Usare libreria `docx` (npm import via esm.sh in Deno) per generare un vero file `.docx` (non `.txt`)
+- Stessa struttura: cover, headings (Heading1/2/3 stile IUSTA), paragrafi, liste, tabelle, blockquote
+- Font: Calibri 11pt corpo, Cambria 14-20pt titoli (universalmente disponibili in Word)
+- Margini 2.5cm, header con "IUSTA" + footer con paginazione
+- File scaricato come `.docx` reale apribile in Word/Pages
 
-**13. Command palette Cmd+K**
-- Componente `CommandPalette.tsx` usando `cmdk` (già nelle deps via shadcn `command.tsx`)
-- Listener globale `Cmd/Ctrl+K`, lista casi recenti, navigazione rapida (Nuova analisi, Storico, Modelli, Settings), ricerca full-text titolo caso
+`Google Docs (apri con)`:
+- L'attuale upload HTML → Google Docs Viewer mostra solo l'HTML senza conversione
+- Soluzione: caricare il `.docx` generato sopra in bucket `reports`, poi aprire `https://docs.google.com/viewer?url=...&embedded=false` oppure usare `https://docs.google.com/document/create?usp=docs_home` con import URL
+- Alternativa più affidabile: link diretto al `.docx` pubblico → l'utente fa "Apri con Google Docs" da Drive (mostriamo istruzione breve nel toast)
+- In `DownloadDialog.tsx`: opzione "Apri con Google Docs" carica il .docx e apre `https://docs.google.com/viewer?url={publicDocxUrl}` in nuova tab
 
-**14. Onboarding tour**
-- Componente `OnboardingTour.tsx` con tooltip step-by-step (4 step: Sidebar, Upload, Settings, Storico)
-- Mostrato solo al primo accesso (`localStorage.iusta_onboarding_done`)
-- Bottone "Mostra tour" in Settings per rivederlo
+## File coinvolti
 
-**15. Stato offline**
-- Hook `useOnlineStatus` (`navigator.onLine` + listener)
-- Banner sticky in cima quando offline: "Sei offline. Le analisi non sono disponibili."
-- Disabilitare bottoni "Avvia analisi" quando offline
-
----
-
-### File coinvolti
-
-**Migrazioni SQL**
-- Bucket `case-files`, colonne `cases.uploaded_files/report_summary/status`, tabelle `analysis_logs`/`case_versions`
-
-**Nuove edge functions**
-- `summarize-case/index.ts`
-- `regenerate-section/index.ts`
-- `export-cases-zip/index.ts`
-
-**Edge function modificate**
-- `chat/index.ts` (logging usage)
-
-**Nuovi componenti**
-- `src/components/ThemeToggle.tsx`
-- `src/contexts/ThemeContext.tsx`
-- `src/components/CommandPalette.tsx`
-- `src/components/OnboardingTour.tsx`
-- `src/components/OfflineBanner.tsx`
-- `src/components/CaseCompare.tsx`
-- `src/components/VersionHistory.tsx`
-- `src/components/QuickFollowupButtons.tsx`
-- `src/hooks/useOnlineStatus.ts`
-- `src/hooks/useBrowserNotifications.ts`
-- `src/pages/Confronta.tsx`
-- `src/pages/Analytics.tsx`
+**Nuovi**
+- `src/components/BentoGrid.tsx`, `BentoCard.tsx`
+- `src/components/AnalysisChecklist.tsx`
+- `src/components/ContradictionModal.tsx`
+- `src/components/SmartDraftingSidebar.tsx`
+- `supabase/functions/draft-suggestions/index.ts`
+- `supabase/functions/generate-fascicolo/index.ts`
 
 **Modificati**
-- `src/pages/Index.tsx` (upload file → storage, notifiche, snapshot, follow-up buttons)
-- `src/pages/Storico.tsx` (selezione multipla, drag&drop, summary, filtri status, ZIP export)
-- `src/components/ReportView.tsx` (rigenera sezione, version history, quick followups)
-- `src/components/AppLayout.tsx` (ThemeProvider, OfflineBanner, OnboardingTour, CommandPalette)
-- `src/components/AppSidebar.tsx` (theme toggle)
-- `src/lib/case-storage.ts` (nuovi campi)
-- `src/App.tsx` (nuove route)
+- `index.html` (Google Fonts)
+- `tailwind.config.ts` (fontFamily, spacing)
+- `src/index.css` (palette navy/oro, glassmorphism utilities, base typography)
+- `src/pages/Index.tsx` (Bento layout, checklist)
+- `src/components/ReportView.tsx` (highlight contraddizioni, sidebar drafting, bottone Fascicolo Pro)
+- `src/components/DownloadDialog.tsx` (Google Docs via .docx)
+- `supabase/functions/generate-pdf/index.ts` (riscrittura con marked + AST)
+- `supabase/functions/generate-docx/index.ts` (riscrittura con libreria `docx` reale)
 
-### Note
-- Niente autenticazione in questo passaggio (i policy restano `true` come oggi); va aggiunta in un prossimo step dedicato
-- Bucket `case-files` sarà pubblico finché non c'è auth — segnalo nel completamento
-- Modulo zip e jspdf già usati
+**Non toccati**: schema DB, auth, routing principale, file `client.ts`/`types.ts`.
+
+## Note
+- Tema forzato dark (toggle light disabilitato sulla dashboard principale; resta solo sulle pagine secondarie se necessario)
+- Tutti i colori passano per token semantici (no `text-white`/`bg-black` diretti)
+- Nessuna nuova dipendenza npm lato client necessaria; le librerie pesanti (`marked`, `docx`) vengono caricate in edge function via `esm.sh`
