@@ -125,10 +125,10 @@ export function ReportView({
       {/* Main report content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Report header */}
-        <div className="border-b border-border bg-card px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="border-b border-border bg-card px-8 py-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm">
-              <Scale className="h-4 w-4 text-primary-foreground" />
+            <div className="h-10 w-10 icon-glass flex items-center justify-center">
+              <Scale className="h-5 w-5 text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -151,9 +151,9 @@ export function ReportView({
             )}
             <DownloadDialog
               onExportPdf={onExportPdf}
-              onExportDocx={onExportDocx || (() => {})}
               markdown={reportMessage?.content || ""}
               titoloPratica={titoloPratica}
+              caseId={caseId}
             />
           </div>
         </div>
