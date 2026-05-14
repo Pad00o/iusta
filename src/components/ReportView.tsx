@@ -83,7 +83,15 @@ export function ReportView({
   const userMessage = messages.find((m) => m.role === "user");
   const sourceText = userMessage?.content || "";
 
-  const handleContradictionClick = (label: string, body: string) => {
+  const handleContradictionClick = (label: string, body: string, sectionTitle?: string) => {
+    // Try to extract reference like "[doc: file.pdf, p.3, l.12]" or "(pag. 3, riga 12)"
+    const docMatch = body.match(/\[doc:\s*([^,\]]+)(?:,\s*p\.?\s*(\d+))?(?:,\s*l\.?\s*(\d+))?\]/i);
+    const pageMatch = !docMatch ? body.match(/p(?:ag(?:ina)?)?\.?\s*(\d+)/i) : null;
+    const lineMatch = !docMatch ? body.match(/r(?:iga)?\.?\s*(\d+)/i) : null;
+    const documentName = docMatch?.[1]?.trim();
+    const pageNumber = docMatch?.[2] ? parseInt(docMatch[2]) : pageMatch ? parseInt(pageMatch[1]) : undefined;
+    const lineNumber = docMatch?.[3] ? parseInt(docMatch[3]) : lineMatch ? parseInt(lineMatch[1]) : undefined;
+
     const keywords = body.match(/\b[A-ZÀ-Ü][a-zà-ü]{4,}\b/g)?.slice(0, 5) || [];
     let excerpt = "";
     for (const kw of keywords) {
@@ -93,9 +101,13 @@ export function ReportView({
     }
     setContradiction({
       title: label,
-      body: body.replace(/\*\*/g, ""),
+      body: body.replace(/\*\*/g, "").replace(/\[doc:[^\]]+\]/gi, "").trim(),
       excerpt,
-      source: "Estratto dal fascicolo caricato",
+      source: documentName || "Estratto dal fascicolo caricato",
+      documentName,
+      pageNumber,
+      lineNumber,
+      citedFromSection: sectionTitle,
     });
   };
 
