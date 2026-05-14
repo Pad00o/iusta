@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,27 +7,41 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, FileType, ExternalLink, Loader2, Package } from "lucide-react";
+import { Download, FileText, ExternalLink, Loader2, Package, Scale, Paperclip } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DownloadDialogProps {
   onExportPdf: () => void;
-  onExportDocx: () => void;
+  /** Kept for backwards compatibility but no longer surfaced as a user action */
+  onExportDocx?: () => void;
   markdown: string;
   titoloPratica?: string;
   caseId?: string | null;
+  /** Number of original uploaded files (for preview) */
+  attachmentsCount?: number;
 }
 
-export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPratica, caseId }: DownloadDialogProps) {
+export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, attachmentsCount = 0 }: DownloadDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingGdocs, setLoadingGdocs] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
 
+  const tableOfContents = useMemo(() => {
+    if (!markdown) return [];
+    const items: { level: 1 | 2; title: string }[] = [];
+    for (const line of markdown.split("\n")) {
+      const m1 = line.match(/^#\s+(.+)/);
+      const m2 = line.match(/^##\s+(.+)/);
+      if (m1) items.push({ level: 1, title: m1[1].trim() });
+      else if (m2) items.push({ level: 2, title: m2[1].trim() });
+    }
+    return items.slice(0, 12);
+  }, [markdown]);
+
   const handleGoogleDocs = async () => {
     setLoadingGdocs(true);
     try {
-      // Generate a real .docx, upload to public bucket, then open Google Docs viewer
       const docxResp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-docx`,
         {
@@ -50,7 +64,6 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
         });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("reports").getPublicUrl(fname);
-      // Google Docs viewer renders Word docs natively (with full formatting)
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pub.publicUrl)}`;
       window.open(viewerUrl, "_blank", "noopener,noreferrer");
       toast({ title: "Apertura in Google Documenti...", description: "Da Google Docs puoi salvare in Drive con 'Apri con Google Docs'." });
@@ -94,14 +107,16 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
     }
   };
 
+  const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+
   const options = [
     {
       icon: Package,
       label: "Fascicolo Pro (.zip)",
-      description: "PDF + Word + Documenti originali in un unico pacchetto",
+      description: "PDF + Documenti originali in un unico pacchetto",
       action: handleFascicoloPro,
       color: "text-primary",
-      bg: "bg-primary/15 border border-primary/30",
+      bg: "icon-glass",
       loading: loadingZip,
       featured: true,
     },
@@ -111,15 +126,7 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
       description: "Documento PDF formattato pronto per la stampa",
       action: () => { onExportPdf(); setOpen(false); },
       color: "text-red-400",
-      bg: "bg-red-500/10",
-    },
-    {
-      icon: FileType,
-      label: "Word (.docx)",
-      description: "Documento Word professionale apribile in Word/Pages",
-      action: () => { onExportDocx(); setOpen(false); },
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
+      bg: "icon-glass",
     },
     {
       icon: loadingGdocs ? Loader2 : ExternalLink,
@@ -127,7 +134,7 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
       description: "Visualizza il report direttamente in Google Docs",
       action: handleGoogleDocs,
       color: "text-emerald-400",
-      bg: "bg-emerald-500/10",
+      bg: "icon-glass",
       loading: loadingGdocs,
     },
   ];
@@ -140,13 +147,59 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
           Scarica
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md glass-strong">
+      <DialogContent className="sm:max-w-2xl glass-strong">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-serif text-xl">
             <Download className="h-5 w-5 text-primary" />
             Esporta Report
           </DialogTitle>
         </DialogHeader>
+
+        {/* Anteprima Fascicolo Pro */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
+          {/* Cover preview */}
+          <div className="md:col-span-2 rounded-2xl border border-border bg-gradient-to-br from-card to-secondary/40 p-5 flex flex-col items-center justify-between min-h-[220px] shadow-elegant">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Anteprima copertina</div>
+            <div className="text-center">
+              <div className="h-12 w-12 mx-auto mb-3 icon-glass flex items-center justify-center">
+                <Scale className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-serif text-lg leading-tight gold-text">
+                {titoloPratica || "Fascicolo Tecnico-Legale"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-1">Generato da IUSTA</p>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{today}</div>
+          </div>
+
+          {/* TOC + meta */}
+          <div className="md:col-span-3 rounded-2xl border border-border bg-card/60 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Indice del fascicolo</h4>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Paperclip className="h-3 w-3" />
+                {attachmentsCount} {attachmentsCount === 1 ? "allegato" : "allegati"}
+              </span>
+            </div>
+            {tableOfContents.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nessuna sezione rilevata.</p>
+            ) : (
+              <ol className="space-y-1.5 max-h-44 overflow-auto pr-2">
+                {tableOfContents.map((it, i) => (
+                  <li
+                    key={i}
+                    className={`text-sm flex gap-2 ${it.level === 1 ? "text-foreground font-semibold" : "text-foreground/80 pl-4"}`}
+                  >
+                    <span className="text-primary tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="truncate">{it.title}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+
+        {/* Download options */}
         <div className="space-y-2 pt-2">
           {options.map((opt) => (
             <button
@@ -156,7 +209,7 @@ export function DownloadDialog({ onExportPdf, onExportDocx, markdown, titoloPrat
               className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left group disabled:opacity-60 ${
                 opt.featured
                   ? "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:shadow-gold-glow"
-                  : "border-border/10 hover:bg-accent/30"
+                  : "border-border hover:bg-accent/40"
               }`}
             >
               <div className={`h-11 w-11 rounded-2xl ${opt.bg} flex items-center justify-center flex-shrink-0`}>
