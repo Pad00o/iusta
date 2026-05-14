@@ -433,6 +433,11 @@ export function ReportView({
           </div>
         </div>
       </div>
+      <ContradictionModal
+        open={!!contradiction}
+        onClose={() => setContradiction(null)}
+        data={contradiction}
+      />
     </div>
   );
 }
