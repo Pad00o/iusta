@@ -1,131 +1,111 @@
+# Piano: Elite Clarity + Liquid Glass + Fix Funzionali
 
-# Piano: Refactoring "Luxury Legal Tech" IUSTA
+## 1. Sistema colori e tipografia (index.css, tailwind.config.ts)
 
-## 1. Estetica & Branding
+Aggiornare i token HSL in `src/index.css`:
+- `--background`: `222 47% 11%` (Slate 900 #0F172A)
+- `--card`: `217 33% 17%` (Slate 800 #1E293B), opacità 0.95 di default
+- `--border`: `215 25% 27%` (Slate 700 #334155), spessore 1px pieno (rimuovere il `/0.1` globale sul `*`)
+- `--foreground`: `210 40% 98%` (Slate 50 #F8FAFC)
+- `--muted-foreground`: `215 20% 75%` (più chiaro, niente più grigi medi sul corpo)
+- `--primary`: `43 73% 62%` (#E5C158 oro più luminoso), `--primary-foreground`: `222 47% 6%` (nero per contrasto sui CTA)
+- `--destructive`: `0 84% 60%` (#EF4444) + utility `.contradiction-block` con bg `hsl(0 84% 60% / 0.08)` + border `hsl(0 84% 60% / 0.4)`
 
-**Tipografia**
-- Aggiungere Google Fonts in `index.html`: `Playfair Display` (titoli) + `Inter` (corpo)
-- `tailwind.config.ts`: estendere `fontFamily` con `serif: ["Playfair Display", ...]` e `sans: ["Inter", ...]`
-- `index.css`: applicare `font-serif` automaticamente a `h1, h2, h3` via `@layer base`
+Tipografia:
+- `body`: `font-size: 1rem; line-height: 1.7;`
+- H1 in `gold-text` (Playfair), H2/H3 in `text-foreground` Playfair
+- Padding minimo sezioni `p-8` (32px)
 
-**Palette (HSL semantici in `index.css`)**
-- `--background: 224 60% 7%` (Navy ultra-dark #0A0F1E)
-- `--foreground: 40 30% 92%` (avorio caldo)
-- `--card: 224 50% 10%` con `--card-glass` per glassmorphism
-- `--primary: 43 65% 53%` (Oro #D4AF37) — solo CTA/accenti
-- `--border: 40 30% 92% / 0.08` (bordi semi-trasparenti)
-- Tema dark di default (forzato); rimuovere/disabilitare toggle light per la dashboard principale
+Rimuovere il gradiente radiale sul `body` (rumore visivo) o ridurlo molto.
 
-**Spaziatura**
-- `tailwind.config.ts`: estendere `spacing` scale +20% sui valori chiave
-- Sostituire `gap-4/p-4` → `gap-6/p-6` nei container principali
+## 2. Liquid Glass utilities (index.css)
 
-## 2. Bento Grid Dashboard
+Sostituire `.glass` / `.glass-strong` con stile Apple Liquid Glass:
+```css
+.glass {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.15),   /* highlight top-left */
+    inset 0 -1px 0 rgba(255,255,255,0.05),    /* edge bottom */
+    0 20px 50px -20px rgba(0,0,0,0.5);        /* outer soft shadow */
+  transition: background 250ms ease, box-shadow 250ms ease;
+}
+.glass:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  box-shadow:
+    inset 2px 2px 0 rgba(255,255,255,0.22),
+    inset 0 -1px 0 rgba(255,255,255,0.06),
+    0 24px 60px -20px rgba(0,0,0,0.55);
+}
+.glass-strong { /* solid panel for contenuti densi */
+  background: hsl(217 33% 17% / 0.96);
+  border: 1px solid hsl(215 25% 27%);
+  border-radius: 24px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.06), 0 20px 50px -20px rgba(0,0,0,0.5);
+}
+.liquid-pill { /* input + search */
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-bottom-color: rgba(255,255,255,0.28); /* bordo inferiore luminoso */
+  border-radius: 9999px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.1);
+}
+.icon-glass { /* sfondo icone */
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 16px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.18), 0 0 14px rgba(229,193,88,0.15);
+}
+```
 
-- Nuovo componente `src/components/BentoGrid.tsx` + `BentoCard.tsx`
-- Refactor `src/pages/Index.tsx`: layout principale a griglia bento (4 colonne, righe variabili)
-  - Card grande: Upload/Nuova analisi
-  - Card: Casi recenti
-  - Card: Statistiche rapide (analisi totali, ore risparmiate)
-  - Card: Modelli salvati
-  - Card: Quick actions / templates
-- Stile card: `rounded-3xl` (24px), `border border-white/8`, `bg-white/[0.03] backdrop-blur-xl`, `shadow-[0_8px_40px_rgba(0,0,0,0.4)]`
-- Hover: leggero glow oro + lift `translate-y-[-2px]`
+Applicare `liquid-pill` in `src/components/ui/input.tsx` (varianti via className override su componenti chiave: ricerca, prompt). Applicare `icon-glass` ai contenitori delle icone in `BentoGrid`, `AnalysisChecklist`, `DownloadDialog`, `ReportView` header, `AppSidebar` items.
 
-## 3. Checklist di caricamento dinamica
+Ridurre blur dove pesante (es. `backdrop-blur-xl` → `blur(20px)` via `.glass`).
 
-- Nuovo `src/components/AnalysisChecklist.tsx` che sostituisce `NeonProgressBar` durante l'analisi
-- 4 step con stato `pending | running | done`:
-  1. Estrazione testo da PDF e OCR
-  2. Calcolo velocità cinematica e dinamica
-  3. Verifica coerenza testimoniale e cross-check
-  4. Generazione report finale e bozza legale
-- Icone: `Loader2` (spin) durante `running`, `Check` oro per `done`, `Circle` muted per `pending`
-- Animazione fade-in per ogni step + linea di connessione tra step
-- Avanzamento basato su tempo simulato + eventi reali dello stream (token chunks)
-- Integrare in `src/pages/Index.tsx` e `src/components/ReportView.tsx`
+## 3. Fix Theme toggle (Settings.tsx, ThemeContext.tsx, index.css)
 
-## 4. Report Interattivo
+Problema attuale: `index.css` definisce gli stessi token in `:root` e `.dark`, e l'HTML è forzato dark in `index.html`/CSS → toggle non ha effetto.
 
-**Highlight contraddizioni**
-- Parser markdown nel `ReportView.tsx`: rilevare blocchi marcati `⚠️ BUGIA TECNICA`, `⚖️ SMENTITA TESTIMONIALE`, o pattern `**Contraddizione:**`
-- Wrappare in `<ContradictionMark>` con sfondo `bg-red-500/10`, bordo `border-red-400/30`, testo leggibile
-- Click → apre `ContradictionModal.tsx` (Dialog shadcn) che mostra:
-  - Titolo contraddizione
-  - "Ritaglio" del documento originale (estratto del testo dalla fonte) in card stile carta
-  - Spiegazione tecnica
-- Fonte estratta dai messages caricati (campo `uploaded_files` su `cases`)
+Soluzione:
+- Spostare i token "scuri" SOLO in `.dark { ... }` e creare in `:root` una palette chiara coerente (background `210 40% 98%`, card `0 0% 100%`, foreground `222 47% 11%`, border `215 20% 85%`, primary invariato).
+- Rimuovere `html:not(.light)` forzato e `color-scheme: dark` di default; lasciare al ThemeContext la classe `dark` su `<html>`.
+- Verificare in `ThemeContext.tsx` che il toggle aggiunga/rimuova la classe correttamente (già lo fa). Testare in `Settings`.
 
-**Smart Drafting Sidebar**
-- Nuovo `src/components/SmartDraftingSidebar.tsx` (colonna destra sticky, larghezza ~340px)
-- Suggerimenti generati al termine dell'analisi via edge function `draft-suggestions` (Lovable AI Gemini Flash) che riceve il report e ritorna 5-8 suggerimenti per atto di citazione (oggetto, parti, fatto, diritto, conclusioni, richiesta danni)
-- Ogni suggerimento: card con icona oro, titolo, snippet, pulsante "Copia"
-- Toggle per nascondere/mostrare la sidebar; scroll sincronizzato col report
+## 4. ContradictionModal: evidenze precise (ContradictionModal.tsx + ReportView.tsx)
 
-## 5. "Genera Fascicolo Pro"
+- Estendere `ContradictionData` con: `documentName?: string`, `pageNumber?: number`, `lineNumber?: number`, `documentUrl?: string` (link pubblico al file in bucket `case-files`).
+- Mostrare nella card "Ritaglio Documento":
+  - Header: nome documento + badge "Pag. X · Riga Y"
+  - Pulsante "Apri documento al punto citato" → apre `documentUrl#page=X` in nuova tab
+- In `ReportView.tsx`, quando si parsa il blocco contraddizione, estrarre eventuali pattern tipo `[doc: nome_file.pdf, p.3, l.12]` dal markdown e popolare i campi. Recuperare l'URL pubblico via `supabase.storage.from('case-files').getPublicUrl(path)` partendo da `case.uploaded_files`.
+- Migliorare evidenziazione: highlight giallo morbido sull'excerpt + annotazione laterale "Citato da: <sezione report>".
 
-- Pulsante primario oro in `ReportView.tsx` (in alto, vicino a Scarica)
-- Nuova edge function `generate-fascicolo` che:
-  - Genera PDF report (riusa logica `generate-pdf` migliorata, vedi §6)
-  - Genera DOCX professionale (vedi §6)
-  - Recupera file caricati da bucket `case-files` ed evidenzia (con marker testuali) le parti citate
-  - Crea ZIP con `jszip`: `Report.pdf`, `Bozza_Atto.docx`, `Documenti_Originali/*`, `Indice.txt`
-  - Ritorna ZIP scaricabile
-- UI: dialog di progresso con checklist (Generazione PDF → DOCX → Pacchetto ZIP)
+## 5. Anteprima Fascicolo Pro nel DownloadDialog (DownloadDialog.tsx)
 
-## 6. Fix CRITICO export documenti leggibili
+Aggiungere un pannello anteprima sopra le opzioni di scarica, visibile sempre:
+- **Copertina** (rendering live): logo IUSTA stilizzato, titolo `titoloPratica`, data, "Fascicolo Tecnico-Legale"
+- **Indice automatico**: estrazione delle headings H1/H2 dal `markdown` (regex `^##? `), numerate
+- **Conteggio allegati**: numero file da `case.uploaded_files` (passato come prop)
+- Layout: card glass-strong divisa in 2 colonne (copertina / indice) sopra la lista delle azioni di download
 
-**Problema attuale**: PDF/DOCX/Google Docs producono HTML grezzo con tag `<h3>`, `<br/>`, `|` di tabelle markdown non parsati. Illeggibile.
+## 6. Rimozione DOCX
 
-**Soluzione**
+- Eliminare opzione "Word (.docx)" da `DownloadDialog.tsx` (rimuovere voce + prop `onExportDocx`)
+- Aggiornare chiamate in `ReportView.tsx` (rimuovere handler export DOCX e import correlati)
+- L'opzione "Apri in Google Documenti" continuerà internamente a generare un `.docx` temporaneo per il viewer (resta funzionante) — solo l'azione utente diretta di download DOCX viene rimossa
+- Lasciare attiva e ben visibile: Fascicolo Pro (ZIP) + PDF + Google Documenti
 
-`generate-pdf` (riscrittura completa):
-- Parser markdown robusto via `marked` (npm import in Deno) → AST
-- Render con `jspdf` + `jspdf-autotable` (già presenti) ma usando l'AST, non regex line-by-line
-- Stile editoriale:
-  - Cover page: logo IUSTA testuale (Playfair simulato con bold), titolo pratica, data, "Report Tecnico-Giuridico"
-  - Tipografia: Helvetica per ora (jsPDF nativo) — titoli 18/14/12pt navy, corpo 11pt grigio scuro 1.5 line-height
-  - Tabelle parsate correttamente (header oro chiaro, righe alternate)
-  - Box "Contraddizione" rosso soft con bordo sinistro
-  - Header/footer su ogni pagina
-- Strip emoji (già fatto) ma preservare formattazione semantica
+## 7. Nessuna modifica
+- Edge functions, schema DB, auth, routing, `client.ts`, `types.ts`
 
-`generate-docx` (sostituzione completa):
-- Usare libreria `docx` (npm import via esm.sh in Deno) per generare un vero file `.docx` (non `.txt`)
-- Stessa struttura: cover, headings (Heading1/2/3 stile IUSTA), paragrafi, liste, tabelle, blockquote
-- Font: Calibri 11pt corpo, Cambria 14-20pt titoli (universalmente disponibili in Word)
-- Margini 2.5cm, header con "IUSTA" + footer con paginazione
-- File scaricato come `.docx` reale apribile in Word/Pages
-
-`Google Docs (apri con)`:
-- L'attuale upload HTML → Google Docs Viewer mostra solo l'HTML senza conversione
-- Soluzione: caricare il `.docx` generato sopra in bucket `reports`, poi aprire `https://docs.google.com/viewer?url=...&embedded=false` oppure usare `https://docs.google.com/document/create?usp=docs_home` con import URL
-- Alternativa più affidabile: link diretto al `.docx` pubblico → l'utente fa "Apri con Google Docs" da Drive (mostriamo istruzione breve nel toast)
-- In `DownloadDialog.tsx`: opzione "Apri con Google Docs" carica il .docx e apre `https://docs.google.com/viewer?url={publicDocxUrl}` in nuova tab
-
-## File coinvolti
-
-**Nuovi**
-- `src/components/BentoGrid.tsx`, `BentoCard.tsx`
-- `src/components/AnalysisChecklist.tsx`
-- `src/components/ContradictionModal.tsx`
-- `src/components/SmartDraftingSidebar.tsx`
-- `supabase/functions/draft-suggestions/index.ts`
-- `supabase/functions/generate-fascicolo/index.ts`
-
-**Modificati**
-- `index.html` (Google Fonts)
-- `tailwind.config.ts` (fontFamily, spacing)
-- `src/index.css` (palette navy/oro, glassmorphism utilities, base typography)
-- `src/pages/Index.tsx` (Bento layout, checklist)
-- `src/components/ReportView.tsx` (highlight contraddizioni, sidebar drafting, bottone Fascicolo Pro)
-- `src/components/DownloadDialog.tsx` (Google Docs via .docx)
-- `supabase/functions/generate-pdf/index.ts` (riscrittura con marked + AST)
-- `supabase/functions/generate-docx/index.ts` (riscrittura con libreria `docx` reale)
-
-**Non toccati**: schema DB, auth, routing principale, file `client.ts`/`types.ts`.
-
-## Note
-- Tema forzato dark (toggle light disabilitato sulla dashboard principale; resta solo sulle pagine secondarie se necessario)
-- Tutti i colori passano per token semantici (no `text-white`/`bg-black` diretti)
-- Nessuna nuova dipendenza npm lato client necessaria; le librerie pesanti (`marked`, `docx`) vengono caricate in edge function via `esm.sh`
+## File toccati
+- `src/index.css`, `tailwind.config.ts`
+- `src/components/ui/input.tsx`
+- `src/components/DownloadDialog.tsx`
+- `src/components/ContradictionModal.tsx`, `src/components/ReportView.tsx`
+- `src/components/BentoGrid.tsx`, `src/components/AnalysisChecklist.tsx`, `src/components/AppSidebar.tsx` (applicare `icon-glass` / `glass`)
+- `src/contexts/ThemeContext.tsx` (verifica), `src/pages/Settings.tsx` (verifica toggle)

@@ -83,7 +83,15 @@ export function ReportView({
   const userMessage = messages.find((m) => m.role === "user");
   const sourceText = userMessage?.content || "";
 
-  const handleContradictionClick = (label: string, body: string) => {
+  const handleContradictionClick = (label: string, body: string, sectionTitle?: string) => {
+    // Try to extract reference like "[doc: file.pdf, p.3, l.12]" or "(pag. 3, riga 12)"
+    const docMatch = body.match(/\[doc:\s*([^,\]]+)(?:,\s*p\.?\s*(\d+))?(?:,\s*l\.?\s*(\d+))?\]/i);
+    const pageMatch = !docMatch ? body.match(/p(?:ag(?:ina)?)?\.?\s*(\d+)/i) : null;
+    const lineMatch = !docMatch ? body.match(/r(?:iga)?\.?\s*(\d+)/i) : null;
+    const documentName = docMatch?.[1]?.trim();
+    const pageNumber = docMatch?.[2] ? parseInt(docMatch[2]) : pageMatch ? parseInt(pageMatch[1]) : undefined;
+    const lineNumber = docMatch?.[3] ? parseInt(docMatch[3]) : lineMatch ? parseInt(lineMatch[1]) : undefined;
+
     const keywords = body.match(/\b[A-ZÀ-Ü][a-zà-ü]{4,}\b/g)?.slice(0, 5) || [];
     let excerpt = "";
     for (const kw of keywords) {
@@ -93,9 +101,13 @@ export function ReportView({
     }
     setContradiction({
       title: label,
-      body: body.replace(/\*\*/g, ""),
+      body: body.replace(/\*\*/g, "").replace(/\[doc:[^\]]+\]/gi, "").trim(),
       excerpt,
-      source: "Estratto dal fascicolo caricato",
+      source: documentName || "Estratto dal fascicolo caricato",
+      documentName,
+      pageNumber,
+      lineNumber,
+      citedFromSection: sectionTitle,
     });
   };
 
@@ -125,10 +137,10 @@ export function ReportView({
       {/* Main report content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Report header */}
-        <div className="border-b border-border bg-card px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="border-b border-border bg-card px-8 py-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm">
-              <Scale className="h-4 w-4 text-primary-foreground" />
+            <div className="h-10 w-10 icon-glass flex items-center justify-center">
+              <Scale className="h-5 w-5 text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -151,9 +163,9 @@ export function ReportView({
             )}
             <DownloadDialog
               onExportPdf={onExportPdf}
-              onExportDocx={onExportDocx || (() => {})}
               markdown={reportMessage?.content || ""}
               titoloPratica={titoloPratica}
+              caseId={caseId}
             />
           </div>
         </div>
@@ -421,6 +433,11 @@ export function ReportView({
           </div>
         </div>
       </div>
+      <ContradictionModal
+        open={!!contradiction}
+        onClose={() => setContradiction(null)}
+        data={contradiction}
+      />
     </div>
   );
 }
