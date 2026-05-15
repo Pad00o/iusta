@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { GlassCard } from "@/components/ui/glass-card";
 
 interface BentoGridProps {
   children: ReactNode;
@@ -24,10 +25,11 @@ interface BentoCardProps {
 
 export function BentoCard({ children, className, span, accent }: BentoCardProps) {
   return (
-    <div
+    <GlassCard
+      interactive
+      glow={accent ? "gold" : "none"}
       className={cn(
-        "relative group rounded-3xl glass shadow-elegant p-6 overflow-hidden transition-all duration-300",
-        "hover:-translate-y-0.5 hover:shadow-gold-glow hover:border-primary/30",
+        "relative group p-6 overflow-hidden hover:-translate-y-0.5",
         accent && "border-primary/30",
         span,
         className,
@@ -37,6 +39,6 @@ export function BentoCard({ children, className, span, accent }: BentoCardProps)
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
       )}
       {children}
-    </div>
+    </GlassCard>
   );
 }
