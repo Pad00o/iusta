@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { LiquidProgress } from "@/components/ui/liquid-progress";
 
 interface NeonProgressBarProps {
   active: boolean;
   done?: boolean;
   label?: string;
+  /** "neon" (default) keeps the cyan style. "liquid" renders the unified Liquid Glass progress. */
+  variant?: "neon" | "liquid";
 }
 
 const STEPS = [
