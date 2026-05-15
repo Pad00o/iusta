@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, Circle, FileSearch, Gauge, Users, FileSignature } from "lucide-react";
+import { LiquidProgress } from "@/components/ui/liquid-progress";
 
 interface Step {
   label: string;
@@ -111,8 +112,8 @@ export function AnalysisChecklist({ active, done, streamedChars = 0 }: Props) {
                   </span>
                 </div>
                 {status === "running" && (
-                  <div className="mt-1 h-0.5 w-32 rounded-full bg-border/20 overflow-hidden">
-                    <div className="h-full w-1/2 gold-bg animate-pulse" />
+                  <div className="mt-2 w-40">
+                    <LiquidProgress indeterminate thin />
                   </div>
                 )}
               </div>

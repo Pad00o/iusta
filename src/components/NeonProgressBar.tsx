@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { LiquidProgress } from "@/components/ui/liquid-progress";
 
 interface NeonProgressBarProps {
   active: boolean;
   done?: boolean;
   label?: string;
+  /** "neon" (default) keeps the cyan style. "liquid" renders the unified Liquid Glass progress. */
+  variant?: "neon" | "liquid";
 }
 
 const STEPS = [
@@ -16,7 +19,7 @@ const STEPS = [
   "Finalizzazione report...",
 ];
 
-export function NeonProgressBar({ active, done, label }: NeonProgressBarProps) {
+export function NeonProgressBar({ active, done, label, variant = "neon" }: NeonProgressBarProps) {
   const [progress, setProgress] = useState(0);
   const [stepIdx, setStepIdx] = useState(0);
 
@@ -46,6 +49,20 @@ export function NeonProgressBar({ active, done, label }: NeonProgressBarProps) {
       clearInterval(stepId);
     };
   }, [active, done]);
+
+  if (variant === "liquid") {
+    return (
+      <div className="w-full max-w-2xl mx-auto select-none">
+        <div className="flex items-end justify-between mb-2 px-1">
+          <span className="text-sm font-medium text-foreground/90">
+            {label || (done ? "Analisi completata" : STEPS[stepIdx])}
+          </span>
+          <span className="text-sm font-bold gold-text tabular-nums">{Math.round(progress)}%</span>
+        </div>
+        <LiquidProgress value={progress} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto select-none">

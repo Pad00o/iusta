@@ -1,111 +1,54 @@
-# Piano: Elite Clarity + Liquid Glass + Fix Funzionali
+# Liquid Glass Unification Plan
 
-## 1. Sistema colori e tipografia (index.css, tailwind.config.ts)
+Goal: a single, consistent Liquid Glass language used across every surface (cards, sidebars, analysis blocks, controls), with reference-quality hover/active reflections that work in both dark and light modes.
 
-Aggiornare i token HSL in `src/index.css`:
-- `--background`: `222 47% 11%` (Slate 900 #0F172A)
-- `--card`: `217 33% 17%` (Slate 800 #1E293B), opacità 0.95 di default
-- `--border`: `215 25% 27%` (Slate 700 #334155), spessore 1px pieno (rimuovere il `/0.1` globale sul `*`)
-- `--foreground`: `210 40% 98%` (Slate 50 #F8FAFC)
-- `--muted-foreground`: `215 20% 75%` (più chiaro, niente più grigi medi sul corpo)
-- `--primary`: `43 73% 62%` (#E5C158 oro più luminoso), `--primary-foreground`: `222 47% 6%` (nero per contrasto sui CTA)
-- `--destructive`: `0 84% 60%` (#EF4444) + utility `.contradiction-block` con bg `hsl(0 84% 60% / 0.08)` + border `hsl(0 84% 60% / 0.4)`
+## 1. Shared `GlassCard` component
+Create `src/components/ui/glass-card.tsx`:
+- Props: `variant` ("default" | "strong" | "subtle"), `interactive` (boolean — adds hover lift + reflection sweep), `glow` ("none" | "gold" | "soft"), `as` (polymorphic element), plus standard `className`/`children`.
+- Internally composes `.glass` / `.glass-strong` plus new `.glass-interactive` and `.glass-glow-*` modifier classes (defined in `index.css`).
+- Exports `GlassCard`, `GlassCardHeader`, `GlassCardTitle`, `GlassCardContent`, `GlassCardFooter` mirroring shadcn `Card` API so it can be a drop-in replacement.
+- Re-export from `src/components/ui/index.ts` (create if missing) for ergonomic imports.
 
-Tipografia:
-- `body`: `font-size: 1rem; line-height: 1.7;`
-- H1 in `gold-text` (Playfair), H2/H3 in `text-foreground` Playfair
-- Padding minimo sezioni `p-8` (32px)
+## 2. Enhanced hover & active reflections (`src/index.css`)
+- Add `.glass-interactive` modifier: animated diagonal highlight sweep using a `::before` pseudo-element with `linear-gradient(115deg, transparent, rgba(255,255,255,0.18), transparent)` translated on hover (cubic-bezier 0.4,0,0.2,1, 600ms).
+- Strengthen existing `.glass:hover` reflection (`::after`) — increase opacity to 0.95, lift bottom highlight, brighten bottom border to `rgba(255,255,255,0.55)`.
+- Add `.glass:active` / `[data-pressed]` state: `scale(0.985)`, deeper inset shadow, dimmer outer shadow (tactile press).
+- Light-mode parity: hover adds `box-shadow: 0 16px 40px -16px hsl(222 47% 20% / 0.22)` and a subtle gold-tinted top border. Active = inset shadow + scale.
+- New `.glass-glow-gold` utility: outer `0 0 24px hsl(43 73% 62% / 0.35)` + animated pulse on hover.
 
-Rimuovere il gradiente radiale sul `body` (rumore visivo) o ridurlo molto.
+## 3. Liquid progress bars
+- Replace `<Progress />` usage in analysis flows with new `LiquidProgress` component at `src/components/ui/liquid-progress.tsx` that wraps the existing `.liquid-progress-track` / `.liquid-progress-fill` CSS, plus an animated shimmer overlay (reuses `neonShimmer` keyframe pattern but in white/gold).
+- Update `src/components/ui/progress.tsx` to render the liquid styling by default (keeps Radix API, swaps inner classes) so any existing imports inherit the new look without churn.
+- Replace the bespoke bar inside `AnalysisChecklist.tsx` running step (`h-0.5 w-32 ... gold-bg animate-pulse`) with `<LiquidProgress indeterminate />`.
+- Audit `NeonProgressBar.tsx`: keep as-is (different intentional neon style) but expose a `variant="liquid"` that renders the liquid version, and switch the analysis pipeline (`Index.tsx`) to use it.
+- Verify by running the dev preview and watching the bar animate through a mocked analysis lifecycle.
 
-## 2. Liquid Glass utilities (index.css)
+## 4. Liquid radio + toggle controls
+- `src/components/ui/radio-group.tsx`: restyle `RadioGroupItem` to use `.icon-glass`-style base, gold-glow on `data-state="checked"`, recessed inset shadow when unchecked, scale(0.92) on `:active`, `opacity-50` + `cursor-not-allowed` for disabled (already partially handled).
+- `src/components/ui/toggle.tsx` & `toggle-group.tsx`: add a new `glass` variant to `toggleVariants` using `.liquid-action` base, with `data-state=on` applying gold-tinted gradient + shadow-gold-glow.
+- `src/components/ui/checkbox.tsx`: align with the same liquid look (small icon-glass square, gold check) for visual consistency.
+- `src/components/ui/switch.tsx`: already liquid — extend `.liquid-switch` CSS with disabled state (desaturate thumb, dim track) and a stronger checked highlight (brighter top thumb gradient + thin gold rim) to match the reference image.
 
-Sostituire `.glass` / `.glass-strong` con stile Apple Liquid Glass:
-```css
-.glass {
-  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 24px;
-  box-shadow:
-    inset 1px 1px 0 rgba(255,255,255,0.15),   /* highlight top-left */
-    inset 0 -1px 0 rgba(255,255,255,0.05),    /* edge bottom */
-    0 20px 50px -20px rgba(0,0,0,0.5);        /* outer soft shadow */
-  transition: background 250ms ease, box-shadow 250ms ease;
-}
-.glass:hover {
-  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  box-shadow:
-    inset 2px 2px 0 rgba(255,255,255,0.22),
-    inset 0 -1px 0 rgba(255,255,255,0.06),
-    0 24px 60px -20px rgba(0,0,0,0.55);
-}
-.glass-strong { /* solid panel for contenuti densi */
-  background: hsl(217 33% 17% / 0.96);
-  border: 1px solid hsl(215 25% 27%);
-  border-radius: 24px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.06), 0 20px 50px -20px rgba(0,0,0,0.5);
-}
-.liquid-pill { /* input + search */
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-  backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-bottom-color: rgba(255,255,255,0.28); /* bordo inferiore luminoso */
-  border-radius: 9999px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.1);
-}
-.icon-glass { /* sfondo icone */
-  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 16px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.18), 0 0 14px rgba(229,193,88,0.15);
-}
-```
+## 5. Apply Glass to all surfaces
+Sweep these files and replace ad-hoc card/panel wrappers with `<GlassCard>` (or add `.glass` / `.glass-strong` classes where a full component swap isn't warranted):
+- Report: `src/components/ReportView.tsx` (each section block, contradiction blocks keep `.contradiction-block` but wrap in GlassCard), `src/components/SmartDraftingSidebar.tsx`, `src/components/VersionHistory.tsx`, `src/components/ContradictionModal.tsx`, `src/components/DownloadDialog.tsx` preview panel.
+- Analysis: `src/components/AnalysisChecklist.tsx` (already `.glass` — migrate to component), `src/components/AnalysisStepper.tsx`, `src/components/AnalysisSettings.tsx`, `src/components/BentoGrid.tsx` tiles.
+- Sidebar/layout: `src/components/AppSidebar.tsx` panels and grouping, `src/components/AppLayout.tsx` header chrome, `src/components/CommandPalette.tsx` shell, `src/components/OfflineBanner.tsx`.
+- Pages: cards in `src/pages/Index.tsx`, `Storico.tsx`, `Analytics.tsx`, `Confronta.tsx`, `Modelli.tsx`, `Settings.tsx` (form sections become GlassCards; preserves existing layout, only changes wrapper classes).
+- Inputs: `src/components/CaseInfoForm.tsx`, `src/components/FileUploadZone.tsx` containers use `.glass-strong` + `.liquid-pill` for inputs.
 
-Applicare `liquid-pill` in `src/components/ui/input.tsx` (varianti via className override su componenti chiave: ricerca, prompt). Applicare `icon-glass` ai contenitori delle icone in `BentoGrid`, `AnalysisChecklist`, `DownloadDialog`, `ReportView` header, `AppSidebar` items.
+No business-logic changes — only wrapper/className swaps and the new component usage.
 
-Ridurre blur dove pesante (es. `backdrop-blur-xl` → `blur(20px)` via `.glass`).
+## Out of scope
+- No edge function, DB, auth, routing, or `client.ts`/`types.ts` edits.
+- `NeonProgressBar` neon style preserved; only adds an opt-in liquid variant.
+- Security findings shown in the current view are not addressed here (separate request).
 
-## 3. Fix Theme toggle (Settings.tsx, ThemeContext.tsx, index.css)
+## Files touched
+New: `src/components/ui/glass-card.tsx`, `src/components/ui/liquid-progress.tsx`.
+Edited: `src/index.css`, `src/components/ui/{progress,radio-group,toggle,toggle-group,checkbox,switch}.tsx`, `NeonProgressBar.tsx`, `AnalysisChecklist.tsx`, plus the surface files listed in §5.
 
-Problema attuale: `index.css` definisce gli stessi token in `:root` e `.dark`, e l'HTML è forzato dark in `index.html`/CSS → toggle non ha effetto.
-
-Soluzione:
-- Spostare i token "scuri" SOLO in `.dark { ... }` e creare in `:root` una palette chiara coerente (background `210 40% 98%`, card `0 0% 100%`, foreground `222 47% 11%`, border `215 20% 85%`, primary invariato).
-- Rimuovere `html:not(.light)` forzato e `color-scheme: dark` di default; lasciare al ThemeContext la classe `dark` su `<html>`.
-- Verificare in `ThemeContext.tsx` che il toggle aggiunga/rimuova la classe correttamente (già lo fa). Testare in `Settings`.
-
-## 4. ContradictionModal: evidenze precise (ContradictionModal.tsx + ReportView.tsx)
-
-- Estendere `ContradictionData` con: `documentName?: string`, `pageNumber?: number`, `lineNumber?: number`, `documentUrl?: string` (link pubblico al file in bucket `case-files`).
-- Mostrare nella card "Ritaglio Documento":
-  - Header: nome documento + badge "Pag. X · Riga Y"
-  - Pulsante "Apri documento al punto citato" → apre `documentUrl#page=X` in nuova tab
-- In `ReportView.tsx`, quando si parsa il blocco contraddizione, estrarre eventuali pattern tipo `[doc: nome_file.pdf, p.3, l.12]` dal markdown e popolare i campi. Recuperare l'URL pubblico via `supabase.storage.from('case-files').getPublicUrl(path)` partendo da `case.uploaded_files`.
-- Migliorare evidenziazione: highlight giallo morbido sull'excerpt + annotazione laterale "Citato da: <sezione report>".
-
-## 5. Anteprima Fascicolo Pro nel DownloadDialog (DownloadDialog.tsx)
-
-Aggiungere un pannello anteprima sopra le opzioni di scarica, visibile sempre:
-- **Copertina** (rendering live): logo IUSTA stilizzato, titolo `titoloPratica`, data, "Fascicolo Tecnico-Legale"
-- **Indice automatico**: estrazione delle headings H1/H2 dal `markdown` (regex `^##? `), numerate
-- **Conteggio allegati**: numero file da `case.uploaded_files` (passato come prop)
-- Layout: card glass-strong divisa in 2 colonne (copertina / indice) sopra la lista delle azioni di download
-
-## 6. Rimozione DOCX
-
-- Eliminare opzione "Word (.docx)" da `DownloadDialog.tsx` (rimuovere voce + prop `onExportDocx`)
-- Aggiornare chiamate in `ReportView.tsx` (rimuovere handler export DOCX e import correlati)
-- L'opzione "Apri in Google Documenti" continuerà internamente a generare un `.docx` temporaneo per il viewer (resta funzionante) — solo l'azione utente diretta di download DOCX viene rimossa
-- Lasciare attiva e ben visibile: Fascicolo Pro (ZIP) + PDF + Google Documenti
-
-## 7. Nessuna modifica
-- Edge functions, schema DB, auth, routing, `client.ts`, `types.ts`
-
-## File toccati
-- `src/index.css`, `tailwind.config.ts`
-- `src/components/ui/input.tsx`
-- `src/components/DownloadDialog.tsx`
-- `src/components/ContradictionModal.tsx`, `src/components/ReportView.tsx`
-- `src/components/BentoGrid.tsx`, `src/components/AnalysisChecklist.tsx`, `src/components/AppSidebar.tsx` (applicare `icon-glass` / `glass`)
-- `src/contexts/ThemeContext.tsx` (verifica), `src/pages/Settings.tsx` (verifica toggle)
+## Verification
+- Visual pass in preview at `/`, `/storico`, `/analytics`, `/confronta`, `/modelli`, `/settings` in both dark and light modes.
+- Trigger an analysis to confirm the liquid progress fill animates smoothly and the indeterminate shimmer renders.
+- Toggle theme via Settings to confirm hover/active glass states render correctly in light mode (no washed-out white-on-white).
