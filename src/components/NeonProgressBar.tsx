@@ -50,6 +50,20 @@ export function NeonProgressBar({ active, done, label, variant = "neon" }: NeonP
     };
   }, [active, done]);
 
+  if (variant === "liquid") {
+    return (
+      <div className="w-full max-w-2xl mx-auto select-none">
+        <div className="flex items-end justify-between mb-2 px-1">
+          <span className="text-sm font-medium text-foreground/90">
+            {label || (done ? "Analisi completata" : STEPS[stepIdx])}
+          </span>
+          <span className="text-sm font-bold gold-text tabular-nums">{Math.round(progress)}%</span>
+        </div>
+        <LiquidProgress value={progress} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-2xl mx-auto select-none">
       <div className="flex items-end justify-between mb-2 px-1">
