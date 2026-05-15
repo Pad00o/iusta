@@ -19,7 +19,7 @@ const STEPS = [
   "Finalizzazione report...",
 ];
 
-export function NeonProgressBar({ active, done, label }: NeonProgressBarProps) {
+export function NeonProgressBar({ active, done, label, variant = "neon" }: NeonProgressBarProps) {
   const [progress, setProgress] = useState(0);
   const [stepIdx, setStepIdx] = useState(0);
 
