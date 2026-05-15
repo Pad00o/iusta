@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, Circle, FileSearch, Gauge, Users, FileSignature } from "lucide-react";
+import { LiquidProgress } from "@/components/ui/liquid-progress";
 
 interface Step {
   label: string;
