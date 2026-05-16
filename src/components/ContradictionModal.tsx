@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, FileText, Quote, ExternalLink, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +44,9 @@ export function ContradictionModal({ open, onClose, data }: Props) {
             </div>
             <span className="text-destructive">{data.title}</span>
           </DialogTitle>
+          <DialogDescription>
+            Dettaglio della contraddizione individuata, con estratto dal documento sorgente.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
