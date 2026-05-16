@@ -13,6 +13,7 @@ import { QuickFollowupButtons } from "@/components/QuickFollowupButtons";
 import { VersionHistory } from "@/components/VersionHistory";
 import { ContradictionModal, type ContradictionData } from "@/components/ContradictionModal";
 import { SmartDraftingSidebar } from "@/components/SmartDraftingSidebar";
+import { ShareDialog } from "@/components/ShareDialog";
 
 interface ReportViewProps {
   messages: Message[];
@@ -161,6 +162,7 @@ export function ReportView({
             {caseId && onRestoreVersion && (
               <VersionHistory caseId={caseId} onRestore={onRestoreVersion} />
             )}
+            {caseId && <ShareDialog caseId={caseId} />}
             <DownloadDialog
               onExportPdf={onExportPdf}
               markdown={reportMessage?.content || ""}
