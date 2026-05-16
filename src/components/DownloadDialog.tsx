@@ -139,6 +139,9 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
             <Download className="h-5 w-5 text-primary" />
             Esporta Report
           </DialogTitle>
+          <DialogDescription>
+            Scegli il formato di esportazione del fascicolo. Il Fascicolo Pro include report e documenti originali.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Anteprima Fascicolo Pro */}
