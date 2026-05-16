@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -42,23 +43,15 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
   const handleGoogleDocs = async () => {
     setLoadingGdocs(true);
     try {
-      const docxResp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-docx`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ markdown, titoloPratica }),
-        }
-      );
-      if (!docxResp.ok) throw new Error("docx fail");
-      const blob = await docxResp.blob();
+      const { data: blob, error } = await supabase.functions.invoke("generate-docx", {
+        body: { markdown, titoloPratica },
+      });
+      if (error) throw error;
+      const docBlob = blob instanceof Blob ? blob : new Blob([blob as any]);
       const fname = `report_${crypto.randomUUID()}.docx`;
       const { error: upErr } = await supabase.storage
         .from("reports")
-        .upload(fname, blob, {
+        .upload(fname, docBlob, {
           contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           upsert: true,
         });
@@ -79,20 +72,12 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
   const handleFascicoloPro = async () => {
     setLoadingZip(true);
     try {
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-fascicolo`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ markdown, titoloPratica, caseId }),
-        }
-      );
-      if (!resp.ok) throw new Error();
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
+      const { data: blob, error } = await supabase.functions.invoke("generate-fascicolo", {
+        body: { markdown, titoloPratica, caseId },
+      });
+      if (error) throw error;
+      const zipBlob = blob instanceof Blob ? blob : new Blob([blob as any], { type: "application/zip" });
+      const url = URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${(titoloPratica || "IUSTA").replace(/[^a-zA-Z0-9]/g, "_")}_Fascicolo_Pro.zip`;
@@ -100,7 +85,8 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
       URL.revokeObjectURL(url);
       toast({ title: "Fascicolo Pro generato", description: "Pacchetto ZIP scaricato." });
       setOpen(false);
-    } catch {
+    } catch (e) {
+      console.error(e);
       toast({ title: "Errore generazione Fascicolo Pro", variant: "destructive" });
     } finally {
       setLoadingZip(false);
@@ -153,6 +139,9 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
             <Download className="h-5 w-5 text-primary" />
             Esporta Report
           </DialogTitle>
+          <DialogDescription>
+            Scegli il formato di esportazione del fascicolo. Il Fascicolo Pro include report e documenti originali.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Anteprima Fascicolo Pro */}

@@ -12,6 +12,7 @@ import Modelli from "./pages/Modelli.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import Confronta from "./pages/Confronta.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import SharedReport from "./pages/SharedReport.tsx";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/confronta" element={<Confronta />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
+            <Route path="/shared/:token" element={<SharedReport />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
