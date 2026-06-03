@@ -88,17 +88,13 @@ export default function SharedReport() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ markdown: reportMd }),
+          body: JSON.stringify({ markdown: reportMd, titoloPratica: data?.titolo_pratica }),
         },
       );
       if (!resp.ok) throw new Error();
       const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${data?.titolo_pratica || "IUSTA_Report"}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const { triggerDownload, buildReportFilename } = await import("@/lib/download");
+      triggerDownload(blob, buildReportFilename(data?.titolo_pratica, "pdf"));
     } catch {
       toast.error("Errore nel download del PDF");
     } finally {
