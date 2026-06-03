@@ -11,8 +11,10 @@ import Settings from "./pages/Settings.tsx";
 import Modelli from "./pages/Modelli.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import Confronta from "./pages/Confronta.tsx";
+import Privacy from "./pages/Privacy.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import SharedReport from "./pages/SharedReport.tsx";
+import Login from "./pages/Login.tsx";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +33,9 @@ const App = () => (
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/confronta" element={<Confronta />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/privacy" element={<Privacy />} />
             </Route>
+            <Route path="/login" element={<Login />} />
             <Route path="/shared/:token" element={<SharedReport />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
