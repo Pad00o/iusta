@@ -440,6 +440,18 @@ export function ReportView({
         onClose={() => setContradiction(null)}
         data={contradiction}
       />
+      {/* Floating action bar */}
+      {reportMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 hidden md:flex items-center gap-2 px-3 py-2 rounded-2xl glass-strong shadow-elegant animate-fade-in">
+          <DownloadDialog
+            onExportPdf={onExportPdf}
+            markdown={reportMessage?.content || ""}
+            titoloPratica={titoloPratica}
+            caseId={caseId}
+          />
+          {caseId && <ShareDialog caseId={caseId} />}
+        </div>
+      )}
     </div>
   );
 }
