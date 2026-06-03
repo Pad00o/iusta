@@ -1,83 +1,119 @@
-## Plan
 
-Large multi-part request. I'll split into focused phases. Phase 1 fixes the broken Download button (regression) and is highest priority. Phases 2–4 add the requested features and polish.
+# Piano di implementazione
 
-### Phase 1 — Fix "Scarica" (download) regression
+Lavoro suddiviso in 6 fasi indipendenti. Tutte le UI seguono lo stile Liquid Glass già definito (`GlassCard`, `.glass-strong`, `.liquid-action`).
 
-The dialog currently only opens Google Docs viewer + Fascicolo ZIP + PDF. The earlier flow also offered direct DOCX (and the user later said "elimina docx"), but now the menu itself appears broken. I'll:
-- Re-verify `DownloadDialog` actions wire correctly to `generate-pdf`, `generate-fascicolo`, and `generate-docx` (Google Docs viewer path) edge functions.
-- Restore three working options: **Fascicolo Pro (.zip)**, **PDF**, **Apri in Google Documenti**.
-- Fix any broken `onExportPdf` prop call from `ReportView`.
-- Add `DialogDescription` (silences the a11y warnings shown in console).
-- Verify each button by calling the edge functions with `supabase--curl_edge_functions`.
+---
 
-### Phase 2 — Liquid Glass polish (consistency pass)
+## Fase 1 — Source Evidence & PDF Viewer avanzato
 
-- Strengthen `.glass:hover` / `:active` reflection + bottom-border highlight in `src/index.css` for both light and dark themes (currently dark-leaning).
-- Strengthen `.liquid-switch[data-state=checked]` with brighter gold inner glow + thumb highlight (light + dark parity).
-- Replace remaining custom progress bars (e.g. in `AnalysisStepper.tsx`, any `<div>`-based bar in `ReportView.tsx`) with `<LiquidProgress />`.
-- Apply `liquid-radio` / `liquid-switch` / `liquid-check` classes to **all** instances across `AnalysisSettings`, `Settings`, `CaseInfoForm`, `OnboardingTour`, including disabled state styling.
-- Sweep wrappers in `ReportView`, `SmartDraftingSidebar`, `AnalysisChecklist`, `AnalysisStepper`, `BentoGrid`, `AppSidebar`, `ContradictionModal`, `DownloadDialog`, `Storico`, `Analytics`, `Confronta`, `Modelli`, `Settings` to use `<GlassCard>` / `.glass` / `.glass-strong`.
+Estendere `src/components/SourceEvidence.tsx` e creare `src/components/PdfViewer.tsx`.
 
-### Phase 3 — Source Evidence ("Vedi Fonte")
+- Stato `loading | ready | error` durante `createSignedUrl`; mostrare `Skeleton` mentre carica.
+- Retry automatico (max 2) + pulsante "Ricarica documento" in caso di errore o URL scaduto (>10 min).
+- Installare `@react-pdf-viewer/core` + `@react-pdf-viewer/page-navigation` per rendering inline con `jumpToPage()`.
+- Pulsante flottante "Vai a pag. N" dentro il viewer che chiama `pageNavigationPluginInstance.jumpToPage(n-1)` e applica un overlay dorato animato (fade 1.5s) sulla pagina.
+- Fallback `<embed src="...#page=N">` se la lib pesa troppo.
+- Toast d'errore descrittivo via `sonner` invece di fallimento silenzioso.
 
-- Extend the report data model so each contradiction / key point can carry `sourceFile`, `pageNumber`, `snippet`, optional `bbox` coords (already partially in `ContradictionModal`).
-- Update `supabase/functions/chat/index.ts` analysis prompt to ask the model to return citations with `{ file, page, quote }`.
-- New component `src/components/SourceEvidence.tsx`:
-  - Lucide `Eye` icon button next to each citation.
-  - `Tooltip` on hover with a snippet preview.
-  - Click opens new `SourceModal` (Liquid Glass): renders the original file from Supabase storage (`case-files` bucket) using `<embed>` for PDFs with `#page=N`, plus a highlighted snippet block.
-  - Fallback when no PDF coords: show only the highlighted text snippet card.
-- Wire it into `ContradictionModal` and `ReportView` (key-points section).
+## Fase 2 — Export reale multi-formato
 
-### Phase 4 — Secure Sharing ("Condividi Report")
+Aggiornare `src/components/DownloadDialog.tsx` in un `DropdownMenu` Liquid Glass con 3 voci:
 
-Backend (single migration):
-```sql
-create table public.shared_reports (
-  id uuid primary key default gen_random_uuid(),
-  case_id uuid not null,
-  token text not null unique,                 -- random URL-safe slug
-  password_hash text,                          -- nullable
-  expires_at timestamptz,                      -- nullable = never
-  view_count integer not null default 0,
-  created_at timestamptz not null default now()
-);
-alter table public.shared_reports enable row level security;
-create policy "anyone can read share by token" on public.shared_reports
-  for select using (true);                     -- token itself is the secret
-create policy "anyone can create shares" on public.shared_reports
-  for insert with check (true);                -- public app, matches existing RLS pattern
-```
+1. **PDF Professionale** → edge function esistente `generate-pdf` (già funzionante).
+2. **Documento Word (.docx)** → edge function esistente `generate-docx`.
+3. **Fascicolo Completo (.zip)** → edge function esistente `generate-fascicolo`.
 
-Edge functions:
-- `create-share`: input `{ caseId, expiresInHours|null, password|null }` → bcrypt-hash password, generate `token = crypto.randomUUID().replace(/-/g,'') + base36 ts`, return `{ url, expiresAt }`.
-- `get-shared-report`: input `{ token, password? }` → verify expiry + password, increment view_count, return read-only case payload (title, markdown report, attachments list with signed URLs).
+Refactor logica di download in `src/lib/download.ts`:
+- Funzione unica `triggerDownload(blob, filename)` che usa `URL.createObjectURL` + `<a download>` temporaneo + `revokeObjectURL`.
+- Naming pulito: `IUSTA_Report_{titoloPratica}_{YYYY-MM-DD}.{ext}`.
+- Stato loading per voce, toast successo/errore, gestione errori Supabase con messaggio leggibile.
+- Micro-animazioni `data-[state=open]:animate-in fade-in zoom-in-95` sul dropdown.
 
-Frontend:
-- New `ShareDialog` (Liquid Glass) triggered from `ReportView` header & Storico row actions:
-  - Expiry select (`24h`, `7g`, `30g`, `Mai`).
-  - Optional password input with show/hide toggle.
-  - Generate → copy-to-clipboard + sonner toast: *"Link di collaborazione copiato. Scadrà tra 24 ore."*
-- New route `/shared/:token` → `SharedReport.tsx`:
-  - Branded IUSTA header (logo + glass strip).
-  - Password gate when required.
-  - Renders the report markdown read-only with PDF download button (re-uses `generate-pdf` via the edge function).
-  - No edit affordances, no sidebar.
-- Use Lucide `Share2`, `Lock`, `ExternalLink`, `Eye`.
+Non riscriviamo la generazione lato client con `jspdf`: le edge function attuali producono PDF/DOCX già stilizzati IUSTA, sono più affidabili. Verrà documentato nella risposta.
 
-### Out of scope
-- No changes to `src/integrations/supabase/{client,types}.ts`.
-- No auth changes (project is currently public per existing RLS).
-- No edits to neon-themed `NeonProgressBar` neon variant.
+## Fase 3 — Sharing operativo (già DB-pronto)
 
-### Verification
-1. Open `/`, run an analysis, click **Scarica** → confirm Fascicolo, PDF, Google Docs all download/open.
-2. Toggle theme → glass hover/active visible in both modes; switch glow visible in both.
-3. Trigger analysis → liquid progress animates.
-4. Click an "Eye" icon on a contradiction → SourceModal renders snippet (and PDF page when available).
-5. Click **Condividi**, generate link with 24h + password → open in incognito → password prompt → read-only report renders → PDF download works.
+Tabella `shared_reports` esiste (token + password_hash + expires_at + view_count).
 
-### Estimated touched files
-- Edited: `src/components/DownloadDialog.tsx`, `src/components/ReportView.tsx`, `src/components/ContradictionModal.tsx`, `src/components/AnalysisStepper.tsx`, `src/components/AnalysisSettings.tsx`, `src/components/SmartDraftingSidebar.tsx`, `src/components/BentoGrid.tsx`, `src/components/AppSidebar.tsx`, `src/components/ui/{switch,radio-group,checkbox,toggle,toggle-group}.tsx`, `src/index.css`, `src/App.tsx` (route), `src/pages/{Index,Storico,Settings,Analytics,Confronta,Modelli}.tsx`, `supabase/functions/chat/index.ts`.
-- New: `src/components/SourceEvidence.tsx`, `src/components/SourceModal.tsx`, `src/components/ShareDialog.tsx`, `src/pages/SharedReport.tsx`, `supabase/functions/create-share/index.ts`, `supabase/functions/get-shared-report/index.ts`, migration for `shared_reports`.
+- Rifinire `ShareDialog.tsx`: opzioni scadenza 24h/7g/30g/Permanente, password opzionale, pulsante "Copia Link" con feedback "Copiato!" via `navigator.clipboard.writeText`, toast Liquid Glass.
+- `SharedReport.tsx`: gate password (se `passwordRequired`), rendering read-only del report con header brandizzato IUSTA, pulsante "Scarica PDF" usando la stessa logica di Fase 2 (no editing), gestione errori (`Link scaduto`, `Password errata`, `Link non valido`).
+- Verifica edge function `get-shared-report` (incremento view_count già presente; semplifico la query).
+
+## Fase 4 — Pagina `/privacy` (Trust Center)
+
+Nuova route `src/pages/Privacy.tsx` registrata in `App.tsx` dentro `AppLayout`. Link nel footer + nella futura pagina Login.
+
+- Hero: titolo serif "La tua riservatezza è il nostro asset più prezioso", sottotitolo "Tecnologia Bancaria applicata al Legal Tech".
+- **Bento Grid 2×2** con `GlassCard interactive glow="gold"`:
+  1. GDPR Compliance UE — icona `ShieldCheck` oro
+  2. Zero-Data Retention — icona `EyeOff`
+  3. Crittografia AES-256 (SSL/TLS + at-rest) — icona `Lock`
+  4. Accesso Protetto — icona `Server`
+- Icone oro `#D4AF37` con `drop-shadow` glow.
+- Sezione citazione "Analisi protetta da segreto professionale: l'IA agisce come un assistente cieco che elabora e dimentica."
+- CTA Liquid Glass "Scarica il Certificato di Compliance" (mockup: genera PDF placeholder lato client).
+
+## Fase 5 — Pagina Login "Pearl Liquid Glass"
+
+Nuova route pubblica `src/pages/Login.tsx` (no auth backend reale per ora — solo UI, redirect su `/`).
+
+- Background: gradiente radiale lavanda/blu polvere + 4-5 div "pearl" (`border-radius:50%`, gradiente radiale bianco perla, blur 20-40px, glow esterno) posizionati asimmetricamente, animazione `@keyframes float` 8-12s ease-in-out infinite alternate.
+- Card centrale: `rounded-[32px]`, `backdrop-blur-[40px] saturate-150`, `bg-white/10`, border `border-white/40`, shadow diffusa `0 30px 80px -20px rgba(0,0,0,0.15)`.
+- Input "pillola" trasparenti con icone `User` / `Lock` interne, placeholder bianco/60.
+- Bottone LOGIN: pillola con gradiente oro tenue (`from-[#D4AF37] to-[#B8941F]`), testo uppercase bold scuro.
+- Checkbox "Remember me" liquid + link "Forgot password?".
+- Sotto il CTA: "Accesso riservato ai partner certificati IUSTA". **Nessun link di registrazione.**
+- Logo IUSTA in alto con effetto metallico (gradient + drop-shadow).
+- Fade-in animato della card al mount.
+
+## Fase 6 — Refactor analisi (Bento Strategic Report)
+
+Refactor `src/components/ReportView.tsx` (mantenendo dati esistenti) in layout Bento:
+
+- **Card "Verdetto di Responsabilità"**: blocco prominente con `LiquidProgress` graduato (es. 70% / 30%) + barra split rosso-soft / verde-smeraldo. Parsing del riassunto: estrarre percentuali se presenti; fallback testuale.
+- **Card "Contraddizioni Rilevate"**: lista interna con badge gravità ("BUGIA TECNICA" `bg-red-500/15 text-red-300`, "INCONGRUENZA TESTIMONIALE" `bg-orange-500/15`). Click → `ContradictionModal` esistente esteso con dettagli espandibili.
+- **Card "Dinamica del Sinistro"**: timeline verticale con marker oro.
+- Ogni punto ha un `<SourceEvidence>` per la prova.
+- **Card "Bozza Atto di Citazione"**: stile "carta pregiata" (`bg-stone-50/95 dark:bg-stone-100/5` con texture sottile SVG noise), pulsante "Copia Testo" con feedback.
+- **Floating Action Bar** in basso (`fixed bottom-6 left-1/2 -translate-x-1/2`) Liquid Glass con: "Scarica PDF", "Condividi", "Esporta Word" — collegati a Fase 2/3.
+- Tipografia: `font-serif` (Playfair) per titoli sezione, `font-mono` per dati tecnici (velocità, distanze, articoli).
+- Colori: rosso `#EF4444`, verde `#10B981`, oro `#D4AF37` per articoli di legge.
+
+---
+
+## File toccati (stima)
+
+**Nuovi**
+- `src/pages/Privacy.tsx`
+- `src/pages/Login.tsx`
+- `src/components/PdfViewer.tsx`
+- `src/lib/download.ts`
+
+**Modificati**
+- `src/App.tsx` (route `/privacy`, `/login`)
+- `src/components/SourceEvidence.tsx` (loading/retry, viewer)
+- `src/components/DownloadDialog.tsx` (dropdown 3 formati + filename)
+- `src/components/ShareDialog.tsx` (UI rifinitura)
+- `src/pages/SharedReport.tsx` (gate password + download PDF)
+- `src/components/ReportView.tsx` (Bento layout + FAB)
+- `src/components/ContradictionModal.tsx` (dettagli espandibili)
+- `src/components/AppSidebar.tsx` / footer (link Privacy)
+- `src/index.css` (keyframes `float` per perle, `pageHighlight` per viewer)
+- `supabase/functions/get-shared-report/index.ts` (cleanup query view_count)
+
+**Dipendenze nuove**
+- `@react-pdf-viewer/core`, `@react-pdf-viewer/page-navigation`, `pdfjs-dist`
+
+## Out of scope
+- Auth reale (la pagina Login resta UI con redirect simulato finché non chiedi Lovable Cloud Auth).
+- Riscrittura PDF/DOCX lato client con `jspdf`/`docx`: le edge function esistenti sono già operative e producono output di qualità superiore.
+- Modifiche a `src/integrations/supabase/{client,types}.ts`.
+
+## Verifica
+1. `/` → analisi → "Scarica" mostra dropdown 3 formati → ognuno scarica file con nome corretto.
+2. Click "Vedi Fonte" su una contraddizione → viewer carica PDF alla pagina giusta, pulsante "Vai a pag. N" funziona.
+3. "Condividi" → genera link → apertura in incognito → password gate → report read-only + download PDF.
+4. `/privacy` raggiungibile, 4 blocchi Bento renderizzati con icone oro.
+5. `/login` mostra perle animate, card glass, nessun link registrazione.
+6. Report renderizzato come Bento con FAB in basso.

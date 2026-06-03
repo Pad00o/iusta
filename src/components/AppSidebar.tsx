@@ -1,4 +1,4 @@
-import { MessageSquare, FolderClock, Settings, Scale, FileText, BarChart3 } from "lucide-react";
+import { MessageSquare, FolderClock, Settings, Scale, FileText, BarChart3, ShieldCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -12,6 +12,7 @@ const navItems = [
   { title: "Storico", url: "/storico", icon: FolderClock },
   { title: "Modelli", url: "/modelli", icon: FileText },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Privacy", url: "/privacy", icon: ShieldCheck },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, ExternalLink, Loader2, Package, Scale, Paperclip } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { triggerDownload, buildReportFilename } from "@/lib/download";
 
 interface DownloadDialogProps {
   onExportPdf: () => void;
@@ -77,12 +78,7 @@ export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, a
       });
       if (error) throw error;
       const zipBlob = blob instanceof Blob ? blob : new Blob([blob as any], { type: "application/zip" });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(titoloPratica || "IUSTA").replace(/[^a-zA-Z0-9]/g, "_")}_Fascicolo_Pro.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(zipBlob, buildReportFilename(titoloPratica, "zip", "IUSTA_Fascicolo"));
       toast({ title: "Fascicolo Pro generato", description: "Pacchetto ZIP scaricato." });
       setOpen(false);
     } catch (e) {
