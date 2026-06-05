@@ -1,216 +1,184 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, ExternalLink, Loader2, Package, Scale, Paperclip } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Download, FileText, Package, Loader2, FileType2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDownload, buildReportFilename } from "@/lib/download";
 
 interface DownloadDialogProps {
-  onExportPdf: () => void;
-  /** Kept for backwards compatibility but no longer surfaced as a user action */
+  onExportPdf: () => void | Promise<void>;
   onExportDocx?: () => void;
   markdown: string;
   titoloPratica?: string;
   caseId?: string | null;
-  /** Number of original uploaded files (for preview) */
   attachmentsCount?: number;
 }
 
-export function DownloadDialog({ onExportPdf, markdown, titoloPratica, caseId, attachmentsCount = 0 }: DownloadDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [loadingGdocs, setLoadingGdocs] = useState(false);
+export function DownloadDialog({
+  onExportPdf,
+  markdown,
+  titoloPratica,
+  caseId,
+}: DownloadDialogProps) {
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
 
-  const tableOfContents = useMemo(() => {
-    if (!markdown) return [];
-    const items: { level: 1 | 2; title: string }[] = [];
-    for (const line of markdown.split("\n")) {
-      const m1 = line.match(/^#\s+(.+)/);
-      const m2 = line.match(/^##\s+(.+)/);
-      if (m1) items.push({ level: 1, title: m1[1].trim() });
-      else if (m2) items.push({ level: 2, title: m2[1].trim() });
-    }
-    return items.slice(0, 12);
-  }, [markdown]);
-
-  const handleGoogleDocs = async () => {
-    setLoadingGdocs(true);
+  const handlePdf = async () => {
+    setLoadingPdf(true);
     try {
-      const { data: blob, error } = await supabase.functions.invoke("generate-docx", {
-        body: { markdown, titoloPratica },
-      });
-      if (error) throw error;
-      const docBlob = blob instanceof Blob ? blob : new Blob([blob as any]);
-      const fname = `report_${crypto.randomUUID()}.docx`;
-      const { error: upErr } = await supabase.storage
-        .from("reports")
-        .upload(fname, docBlob, {
-          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          upsert: true,
-        });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("reports").getPublicUrl(fname);
-      const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pub.publicUrl)}`;
-      window.open(viewerUrl, "_blank", "noopener,noreferrer");
-      toast({ title: "Apertura in Google Documenti...", description: "Da Google Docs puoi salvare in Drive con 'Apri con Google Docs'." });
-      setOpen(false);
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Errore nell'apertura su Google Documenti", variant: "destructive" });
+      await onExportPdf();
+      toast.success("PDF generato", { description: "Download avviato." });
+    } catch (e: any) {
+      toast.error("Errore generazione PDF", { description: e?.message });
     } finally {
-      setLoadingGdocs(false);
+      setLoadingPdf(false);
     }
   };
 
-  const handleFascicoloPro = async () => {
+  const handleDocx = async () => {
+    setLoadingDocx(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-docx", {
+        body: { markdown, titoloPratica },
+      });
+      if (error) throw error;
+      const blob = data instanceof Blob
+        ? data
+        : new Blob([data as any], {
+            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          });
+      triggerDownload(blob, buildReportFilename(titoloPratica, "docx"));
+      toast.success("Word generato", { description: "Download avviato." });
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Errore generazione Word", { description: e?.message });
+    } finally {
+      setLoadingDocx(false);
+    }
+  };
+
+  const handleZip = async () => {
     setLoadingZip(true);
     try {
-      const { data: blob, error } = await supabase.functions.invoke("generate-fascicolo", {
+      const { data, error } = await supabase.functions.invoke("generate-fascicolo", {
         body: { markdown, titoloPratica, caseId },
       });
       if (error) throw error;
-      const zipBlob = blob instanceof Blob ? blob : new Blob([blob as any], { type: "application/zip" });
-      triggerDownload(zipBlob, buildReportFilename(titoloPratica, "zip", "IUSTA_Fascicolo"));
-      toast({ title: "Fascicolo Pro generato", description: "Pacchetto ZIP scaricato." });
-      setOpen(false);
-    } catch (e) {
+      const blob = data instanceof Blob
+        ? data
+        : new Blob([data as any], { type: "application/zip" });
+      triggerDownload(blob, buildReportFilename(titoloPratica, "zip", "IUSTA_Fascicolo"));
+      toast.success("Fascicolo Pro generato", { description: "Pacchetto ZIP scaricato." });
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Errore generazione Fascicolo Pro", variant: "destructive" });
+      toast.error("Errore generazione Fascicolo", { description: e?.message });
     } finally {
       setLoadingZip(false);
     }
   };
 
-  const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
-
-  const options = [
-    {
-      icon: Package,
-      label: "Fascicolo Pro (.zip)",
-      description: "PDF + Documenti originali in un unico pacchetto",
-      action: handleFascicoloPro,
-      color: "text-primary",
-      bg: "icon-glass",
-      loading: loadingZip,
-      featured: true,
-    },
-    {
-      icon: FileText,
-      label: "PDF",
-      description: "Documento PDF formattato pronto per la stampa",
-      action: () => { onExportPdf(); setOpen(false); },
-      color: "text-red-400",
-      bg: "icon-glass",
-    },
-    {
-      icon: loadingGdocs ? Loader2 : ExternalLink,
-      label: "Apri in Google Documenti",
-      description: "Visualizza il report direttamente in Google Docs",
-      action: handleGoogleDocs,
-      color: "text-emerald-400",
-      bg: "icon-glass",
-      loading: loadingGdocs,
-    },
-  ];
+  const anyLoading = loadingPdf || loadingDocx || loadingZip;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-2 gold-bg text-primary-foreground shadow-gold-glow hover:opacity-90 font-semibold">
-          <Download className="h-4 w-4" />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="sm"
+          disabled={anyLoading}
+          className="gap-2 gold-bg text-primary-foreground shadow-gold-glow hover:opacity-90 font-semibold"
+        >
+          {anyLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
           Scarica
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl glass-strong">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-serif text-xl">
-            <Download className="h-5 w-5 text-primary" />
-            Esporta Report
-          </DialogTitle>
-          <DialogDescription>
-            Scegli il formato di esportazione del fascicolo. Il Fascicolo Pro include report e documenti originali.
-          </DialogDescription>
-        </DialogHeader>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-72 glass-strong p-2 rounded-2xl border border-white/20 shadow-elegant"
+      >
+        <DropdownMenuLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 pt-1 pb-2">
+          Esporta Report
+        </DropdownMenuLabel>
 
-        {/* Anteprima Fascicolo Pro */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
-          {/* Cover preview */}
-          <div className="md:col-span-2 rounded-2xl border border-border bg-gradient-to-br from-card to-secondary/40 p-5 flex flex-col items-center justify-between min-h-[220px] shadow-elegant">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Anteprima copertina</div>
-            <div className="text-center">
-              <div className="h-12 w-12 mx-auto mb-3 icon-glass flex items-center justify-center">
-                <Scale className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-serif text-lg leading-tight gold-text">
-                {titoloPratica || "Fascicolo Tecnico-Legale"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-1">Generato da IUSTA</p>
-            </div>
-            <div className="text-[10px] text-muted-foreground">{today}</div>
-          </div>
-
-          {/* TOC + meta */}
-          <div className="md:col-span-3 rounded-2xl border border-border bg-card/60 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Indice del fascicolo</h4>
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Paperclip className="h-3 w-3" />
-                {attachmentsCount} {attachmentsCount === 1 ? "allegato" : "allegati"}
-              </span>
-            </div>
-            {tableOfContents.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nessuna sezione rilevata.</p>
+        <DropdownMenuItem
+          disabled={loadingPdf}
+          onSelect={(e) => { e.preventDefault(); handlePdf(); }}
+          className="liquid-action rounded-xl p-3 cursor-pointer focus:bg-primary/10 gap-3"
+        >
+          <div className="h-9 w-9 rounded-xl icon-glass flex items-center justify-center flex-shrink-0">
+            {loadingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin text-red-400" />
             ) : (
-              <ol className="space-y-1.5 max-h-44 overflow-auto pr-2">
-                {tableOfContents.map((it, i) => (
-                  <li
-                    key={i}
-                    className={`text-sm flex gap-2 ${it.level === 1 ? "text-foreground font-semibold" : "text-foreground/80 pl-4"}`}
-                  >
-                    <span className="text-primary tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                    <span className="truncate">{it.title}</span>
-                  </li>
-                ))}
-              </ol>
+              <FileText className="h-4 w-4 text-red-400" />
             )}
           </div>
-        </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-foreground">PDF Professionale</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              Documento formattato pronto per la stampa
+            </div>
+          </div>
+        </DropdownMenuItem>
 
-        {/* Download options */}
-        <div className="space-y-2 pt-2">
-          {options.map((opt) => (
-            <button
-              key={opt.label}
-              onClick={opt.action}
-              disabled={opt.loading}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left group disabled:opacity-60 ${
-                opt.featured
-                  ? "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:shadow-gold-glow"
-                  : "border-border hover:bg-accent/40"
-              }`}
-            >
-              <div className={`h-11 w-11 rounded-2xl ${opt.bg} flex items-center justify-center flex-shrink-0`}>
-                <opt.icon className={`h-5 w-5 ${opt.color} ${opt.loading ? "animate-spin" : ""}`} />
-              </div>
-              <div className="flex-1">
-                <h4 className={`font-medium ${opt.featured ? "text-primary" : "text-foreground"}`}>
-                  {opt.label}
-                  {opt.featured && <span className="ml-2 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-bold">Pro</span>}
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+        <DropdownMenuItem
+          disabled={loadingDocx}
+          onSelect={(e) => { e.preventDefault(); handleDocx(); }}
+          className="liquid-action rounded-xl p-3 cursor-pointer focus:bg-primary/10 gap-3"
+        >
+          <div className="h-9 w-9 rounded-xl icon-glass flex items-center justify-center flex-shrink-0">
+            {loadingDocx ? (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+            ) : (
+              <FileType2 className="h-4 w-4 text-blue-500" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-foreground">Word (.docx)</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              Modificabile in Microsoft Word o Google Docs
+            </div>
+          </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="my-1 bg-white/10" />
+
+        <DropdownMenuItem
+          disabled={loadingZip}
+          onSelect={(e) => { e.preventDefault(); handleZip(); }}
+          className="liquid-action rounded-xl p-3 cursor-pointer focus:bg-primary/10 gap-3 border border-primary/30 bg-primary/5"
+        >
+          <div className="h-9 w-9 rounded-xl icon-glass flex items-center justify-center flex-shrink-0">
+            {loadingZip ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <Package className="h-4 w-4 text-primary" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-primary flex items-center gap-2">
+              Fascicolo (.zip)
+              <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-bold">
+                Pro
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              PDF + documenti originali in un unico pacchetto
+            </div>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
