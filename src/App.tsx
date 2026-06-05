@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { RequireAuth } from "@/components/RequireAuth";
 import Index from "./pages/Index.tsx";
 import Storico from "./pages/Storico.tsx";
 import Settings from "./pages/Settings.tsx";
@@ -20,28 +22,36 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <ThemeProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/storico" element={<Storico />} />
-              <Route path="/modelli" element={<Modelli />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/confronta" element={<Confronta />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/privacy" element={<Privacy />} />
-            </Route>
-            <Route path="/login" element={<Login />} />
-            <Route path="/shared/:token" element={<SharedReport />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/shared/:token" element={<SharedReport />} />
+              <Route
+                element={
+                  <RequireAuth>
+                    <AppLayout />
+                  </RequireAuth>
+                }
+              >
+                <Route path="/" element={<Index />} />
+                <Route path="/storico" element={<Storico />} />
+                <Route path="/modelli" element={<Modelli />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/confronta" element={<Confronta />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/privacy" element={<Privacy />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   </ThemeProvider>
 );
 

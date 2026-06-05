@@ -16,8 +16,7 @@ interface ShareDialogProps {
 const EXPIRY_OPTIONS = [
   { value: "24", label: "24 ore" },
   { value: "168", label: "7 giorni" },
-  { value: "720", label: "30 giorni" },
-  { value: "0", label: "Mai" },
+  { value: "0", label: "Permanente" },
 ];
 
 export function ShareDialog({ caseId, trigger }: ShareDialogProps) {
@@ -61,7 +60,8 @@ export function ShareDialog({ caseId, trigger }: ShareDialogProps) {
     if (!link) return;
     await navigator.clipboard.writeText(link);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    toast.success("Copiato!", { description: "Link negli appunti." });
+    setTimeout(() => setCopied(false), 1800);
   };
 
   const reset = () => {
