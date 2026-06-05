@@ -60,7 +60,8 @@ export function ShareDialog({ caseId, trigger }: ShareDialogProps) {
     if (!link) return;
     await navigator.clipboard.writeText(link);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    toast.success("Copiato!", { description: "Link negli appunti." });
+    setTimeout(() => setCopied(false), 1800);
   };
 
   const reset = () => {
