@@ -382,7 +382,7 @@ async function buildPdf(
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { markdown, titoloPratica, format } = await req.json();
+    const { markdown, titoloPratica, format, studioName, studioLogo } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "No markdown" }), {
         status: 400,
@@ -407,7 +407,8 @@ table{border-collapse:collapse;width:100%;margin:1em 0}td,th{border:1px solid #c
       return new Response(JSON.stringify({ url: pub.publicUrl }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const pdfBytes = buildPdf(markdown, titoloPratica);
+    const logoData = studioLogo ? await fetchImageDataUrl(studioLogo) : null;
+    const pdfBytes = await buildPdf(markdown, titoloPratica, studioName || null, logoData);
     const fileName = (titoloPratica || "IUSTA_Report").replace(/[^a-zA-Z0-9]/g, "_") + ".pdf";
     return new Response(pdfBytes, {
       headers: {
