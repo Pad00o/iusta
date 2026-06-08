@@ -17,6 +17,7 @@ import Privacy from "./pages/Privacy.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import SharedReport from "./pages/SharedReport.tsx";
 import Login from "./pages/Login.tsx";
+import Clienti from "./pages/Clienti.tsx";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,14 @@ const App = () => (
                 <Route path="/confronta" element={<Confronta />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/privacy" element={<Privacy />} />
+                <Route
+                  path="/clienti"
+                  element={
+                    <RequireAuth adminOnly>
+                      <Clienti />
+                    </RequireAuth>
+                  }
+                />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
