@@ -360,11 +360,11 @@ async function buildPdf(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
-      doc.text("IUSTA", marginX, 14);
+      doc.text(brandName, marginX, 14);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
-      doc.text("Report di Analisi Tecnico-Giuridica", pageW - marginX, 14, { align: "right" });
+      doc.text(brandSubtitle, pageW - marginX, 14, { align: "right" });
       doc.setDrawColor(GOLD[0], GOLD[1], GOLD[2]);
       doc.setLineWidth(0.3);
       doc.line(marginX, 17, pageW - marginX, 17);
