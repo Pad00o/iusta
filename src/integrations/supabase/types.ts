@@ -47,6 +47,45 @@ export type Database = {
         }
         Relationships: []
       }
+      app_users: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          is_authorized: boolean
+          logo_url: string | null
+          pagano: number
+          password_hash: string
+          studio: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          is_authorized?: boolean
+          logo_url?: string | null
+          pagano?: number
+          password_hash: string
+          studio?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          is_authorized?: boolean
+          logo_url?: string | null
+          pagano?: number
+          password_hash?: string
+          studio?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       case_versions: {
         Row: {
           case_id: string

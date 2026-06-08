@@ -56,7 +56,26 @@ const RED_BG: [number, number, number] = [253, 240, 240];
 const RED_BORDER: [number, number, number] = [200, 70, 70];
 const QUOTE_BG: [number, number, number] = [252, 248, 230];
 
-function buildPdf(markdown: string, titoloPratica?: string): Uint8Array {
+async function fetchImageDataUrl(url: string): Promise<{ data: string; type: string } | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    const ct = r.headers.get("content-type") || "image/png";
+    let bin = "";
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+    return { data: btoa(bin), type: ct.includes("jpeg") || ct.includes("jpg") ? "JPEG" : "PNG" };
+  } catch {
+    return null;
+  }
+}
+
+async function buildPdf(
+  markdown: string,
+  titoloPratica?: string,
+  studioName?: string | null,
+  studioLogoDataUrl?: { data: string; type: string } | null,
+): Promise<Uint8Array> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -65,6 +84,11 @@ function buildPdf(markdown: string, titoloPratica?: string): Uint8Array {
   const marginBottom = 22;
   const contentW = pageW - marginX * 2;
   let y = marginTop;
+
+  const brandName = studioName || "IUSTA";
+  const brandSubtitle = studioName
+    ? "Report di Analisi Tecnico-Giuridica"
+    : "Report di Analisi Tecnico-Giuridica";
 
   const ensure = (h: number) => {
     if (y + h > pageH - marginBottom) {
@@ -95,16 +119,32 @@ function buildPdf(markdown: string, titoloPratica?: string): Uint8Array {
   doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
   doc.rect(0, 60, pageW, 1.2, "F");
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
-  doc.setTextColor(255, 255, 255);
-  doc.text("IUSTA", marginX, 30);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(220, 215, 200);
-  doc.text("Report di Analisi Tecnico-Giuridica", marginX, 40);
-  doc.setFontSize(9);
-  doc.text("Infortunistica Stradale — Documento riservato", marginX, 48);
+  if (studioLogoDataUrl) {
+    try {
+      doc.addImage(studioLogoDataUrl.data, studioLogoDataUrl.type, marginX, 14, 30, 30, undefined, "FAST");
+    } catch {}
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(255, 255, 255);
+    doc.text(brandName, marginX + 36, 30);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(220, 215, 200);
+    doc.text(brandSubtitle, marginX + 36, 40);
+    doc.setFontSize(8);
+    doc.text("Documento riservato", marginX + 36, 47);
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.setTextColor(255, 255, 255);
+    doc.text(brandName, marginX, 30);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(220, 215, 200);
+    doc.text(brandSubtitle, marginX, 40);
+    doc.setFontSize(9);
+    doc.text("Documento riservato", marginX, 48);
+  }
 
   y = 80;
   if (titoloPratica) {
@@ -320,11 +360,11 @@ function buildPdf(markdown: string, titoloPratica?: string): Uint8Array {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
-      doc.text("IUSTA", marginX, 14);
+      doc.text(brandName, marginX, 14);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
-      doc.text("Report di Analisi Tecnico-Giuridica", pageW - marginX, 14, { align: "right" });
+      doc.text(brandSubtitle, pageW - marginX, 14, { align: "right" });
       doc.setDrawColor(GOLD[0], GOLD[1], GOLD[2]);
       doc.setLineWidth(0.3);
       doc.line(marginX, 17, pageW - marginX, 17);
@@ -342,7 +382,7 @@ function buildPdf(markdown: string, titoloPratica?: string): Uint8Array {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { markdown, titoloPratica, format } = await req.json();
+    const { markdown, titoloPratica, format, studioName, studioLogo } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "No markdown" }), {
         status: 400,
@@ -367,7 +407,8 @@ table{border-collapse:collapse;width:100%;margin:1em 0}td,th{border:1px solid #c
       return new Response(JSON.stringify({ url: pub.publicUrl }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const pdfBytes = buildPdf(markdown, titoloPratica);
+    const logoData = studioLogo ? await fetchImageDataUrl(studioLogo) : null;
+    const pdfBytes = await buildPdf(markdown, titoloPratica, studioName || null, logoData);
     const fileName = (titoloPratica || "IUSTA_Report").replace(/[^a-zA-Z0-9]/g, "_") + ".pdf";
     return new Response(pdfBytes, {
       headers: {

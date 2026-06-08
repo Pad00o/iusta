@@ -19,6 +19,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { requestNotificationPermission, notifyIfBackgrounded } from "@/hooks/useBrowserNotifications";
 import { logAnalysis } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,6 +27,7 @@ const Index = () => {
   const { setOpenMobile, toggleSidebar, state: sidebarState } = useSidebar();
   const online = useOnlineStatus();
   const uploadedFilesRef = useRef<UploadedFileRef[]>([]);
+  const { user } = useAuth();
 
   const {
     messages, setMessages,
@@ -277,7 +279,11 @@ const Index = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ markdown: reportMsg.content }),
+          body: JSON.stringify({
+            markdown: reportMsg.content,
+            studioName: user?.is_authorized ? user.studio : null,
+            studioLogo: user?.is_authorized ? user.logo_url : null,
+          }),
         }
       );
       if (!resp.ok) throw new Error();

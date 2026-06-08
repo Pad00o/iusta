@@ -2,18 +2,23 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Copy, Send, ChevronRight } from "lucide-react";
+import { FileText, Copy, Send, ChevronRight, Download, Loader2 } from "lucide-react";
 import { legalTemplates } from "@/lib/templates";
 import { getAllCases, type Case } from "@/lib/case-storage";
 import { streamChat } from "@/lib/chat-stream";
 import { toast } from "@/hooks/use-toast";
 import { useModelli } from "@/contexts/ModelliContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { triggerDownload, buildReportFilename } from "@/lib/download";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export default function Modelli() {
   const [cases, setCases] = useState<Case[]>([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const { user } = useAuth();
   const { toggleSidebar, setOpenMobile, state: sidebarState } = useSidebar();
 
   const {
@@ -42,11 +47,15 @@ export default function Modelli() {
     setIsGenerating(true);
     setGeneratedDoc("");
 
+    const studioContext = user?.studio
+      ? `\n\nStudio richiedente (usa questo nome dove serve il "Legale rappresentante di" o lo studio incaricato): ${user.studio}`
+      : "";
+
     const caseContext = selectedCase
       ? `\n\nDati del caso:\nTitolo: ${selectedCase.titoloPratica || selectedCase.title}\nNumero pratica: ${selectedCase.numeroPratica || "N/A"}\nNote: ${selectedCase.note || "Nessuna"}\n\nConversazione del caso:\n${selectedCase.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}`
       : "";
 
-    const prompt = `${selectedTemplate.prompt}${caseContext}\n\nGenera il documento completo in formato markdown, pronto per essere utilizzato da uno studio legale.`;
+    const prompt = `${selectedTemplate.prompt}${studioContext}${caseContext}\n\nGenera il documento completo in formato markdown, pronto per essere utilizzato da uno studio legale. Per i dati che non sono presenti nel caso, fai inferenze ragionevoli o usa la dicitura "_____________".`;
 
     let soFar = "";
     await streamChat({
@@ -63,6 +72,31 @@ export default function Modelli() {
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedDoc);
     toast({ title: "Documento copiato negli appunti" });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!generatedDoc || !selectedTemplate) return;
+    setDownloadingPdf(true);
+    try {
+      const titolo = `${selectedTemplate.name}${selectedCase ? " - " + (selectedCase.titoloPratica || selectedCase.title) : ""}`;
+      const { data, error } = await supabase.functions.invoke("generate-pdf", {
+        body: {
+          markdown: generatedDoc,
+          titoloPratica: titolo,
+          template: selectedTemplate.id,
+          studioName: user?.is_authorized ? user.studio : null,
+          studioLogo: user?.is_authorized ? user.logo_url : null,
+        },
+      });
+      if (error) throw error;
+      const blob = data instanceof Blob ? data : new Blob([data as any], { type: "application/pdf" });
+      triggerDownload(blob, buildReportFilename(titolo, "pdf"));
+      toast({ title: "PDF generato", description: "Download avviato." });
+    } catch (e: any) {
+      toast({ title: "Errore PDF", description: e?.message, variant: "destructive" });
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (selectedTemplate) {
@@ -107,6 +141,15 @@ export default function Modelli() {
                 <div className="border-b border-border px-4 py-2 flex items-center justify-end gap-2 flex-shrink-0">
                   <Button variant="outline" size="sm" onClick={handleCopy}>
                     <Copy className="h-4 w-4 mr-1" /> Copia
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf || isGenerating}
+                    className="gold-bg text-primary-foreground font-semibold gap-1"
+                  >
+                    {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Scarica PDF
                   </Button>
                 </div>
                 <ScrollArea className="flex-1">
