@@ -142,6 +142,15 @@ export default function Modelli() {
                   <Button variant="outline" size="sm" onClick={handleCopy}>
                     <Copy className="h-4 w-4 mr-1" /> Copia
                   </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf || isGenerating}
+                    className="gold-bg text-primary-foreground font-semibold gap-1"
+                  >
+                    {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Scarica PDF
+                  </Button>
                 </div>
                 <ScrollArea className="flex-1">
                   <div className="max-w-3xl mx-auto px-6 py-6 prose prose-sm dark:prose-invert">
