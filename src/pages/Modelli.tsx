@@ -47,11 +47,15 @@ export default function Modelli() {
     setIsGenerating(true);
     setGeneratedDoc("");
 
+    const studioContext = user?.studio
+      ? `\n\nStudio richiedente (usa questo nome dove serve il "Legale rappresentante di" o lo studio incaricato): ${user.studio}`
+      : "";
+
     const caseContext = selectedCase
       ? `\n\nDati del caso:\nTitolo: ${selectedCase.titoloPratica || selectedCase.title}\nNumero pratica: ${selectedCase.numeroPratica || "N/A"}\nNote: ${selectedCase.note || "Nessuna"}\n\nConversazione del caso:\n${selectedCase.messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}`
       : "";
 
-    const prompt = `${selectedTemplate.prompt}${caseContext}\n\nGenera il documento completo in formato markdown, pronto per essere utilizzato da uno studio legale.`;
+    const prompt = `${selectedTemplate.prompt}${studioContext}${caseContext}\n\nGenera il documento completo in formato markdown, pronto per essere utilizzato da uno studio legale. Per i dati che non sono presenti nel caso, fai inferenze ragionevoli o usa la dicitura "_____________".`;
 
     let soFar = "";
     await streamChat({
@@ -68,6 +72,31 @@ export default function Modelli() {
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedDoc);
     toast({ title: "Documento copiato negli appunti" });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!generatedDoc || !selectedTemplate) return;
+    setDownloadingPdf(true);
+    try {
+      const titolo = `${selectedTemplate.name}${selectedCase ? " - " + (selectedCase.titoloPratica || selectedCase.title) : ""}`;
+      const { data, error } = await supabase.functions.invoke("generate-pdf", {
+        body: {
+          markdown: generatedDoc,
+          titoloPratica: titolo,
+          template: selectedTemplate.id,
+          studioName: user?.is_authorized ? user.studio : null,
+          studioLogo: user?.is_authorized ? user.logo_url : null,
+        },
+      });
+      if (error) throw error;
+      const blob = data instanceof Blob ? data : new Blob([data as any], { type: "application/pdf" });
+      triggerDownload(blob, buildReportFilename(titolo, "pdf"));
+      toast({ title: "PDF generato", description: "Download avviato." });
+    } catch (e: any) {
+      toast({ title: "Errore PDF", description: e?.message, variant: "destructive" });
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (selectedTemplate) {
