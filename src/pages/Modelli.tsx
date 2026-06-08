@@ -2,18 +2,23 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Copy, Send, ChevronRight } from "lucide-react";
+import { FileText, Copy, Send, ChevronRight, Download, Loader2 } from "lucide-react";
 import { legalTemplates } from "@/lib/templates";
 import { getAllCases, type Case } from "@/lib/case-storage";
 import { streamChat } from "@/lib/chat-stream";
 import { toast } from "@/hooks/use-toast";
 import { useModelli } from "@/contexts/ModelliContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { triggerDownload, buildReportFilename } from "@/lib/download";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export default function Modelli() {
   const [cases, setCases] = useState<Case[]>([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const { user } = useAuth();
   const { toggleSidebar, setOpenMobile, state: sidebarState } = useSidebar();
 
   const {
