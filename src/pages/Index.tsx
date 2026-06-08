@@ -279,7 +279,11 @@ const Index = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ markdown: reportMsg.content }),
+          body: JSON.stringify({
+            markdown: reportMsg.content,
+            studioName: user?.is_authorized ? user.studio : null,
+            studioLogo: user?.is_authorized ? user.logo_url : null,
+          }),
         }
       );
       if (!resp.ok) throw new Error();
