@@ -1,119 +1,94 @@
-
 # Piano di implementazione
 
-Lavoro suddiviso in 6 fasi indipendenti. Tutte le UI seguono lo stile Liquid Glass già definito (`GlassCard`, `.glass-strong`, `.liquid-action`).
+## 1. Autenticazione multi-utente + Admin
+
+**Database (nuova tabella `app_users`)**
+- `id uuid PK`, `username text UNIQUE`, `password_hash text`, `studio text`, `pagano numeric`, `logo_url text`, `is_admin bool`, `is_authorized bool` (toggle white-label), `created_at`.
+- Seed: `pado` / `ADMIN` con `is_admin = true`, `is_authorized = true`.
+- RLS aperta (validazione lato edge function); GRANT a `anon`/`authenticated`/`service_role`.
+
+**Edge functions**
+- `auth-login`: riceve `{username, password}`, verifica hash, restituisce profilo utente (no JWT custom — manteniamo session client-side firmata).
+- `auth-create-user` (solo admin): crea cliente con `studio`, `pagano`, `username`, `password`.
+- `auth-delete-user` (solo admin): elimina cliente.
+- `auth-toggle-authorization` (solo admin): flip `is_authorized`.
+- `auth-update-profile`: utente aggiorna proprio `studio` e `logo_url`.
+
+**Frontend**
+- `AuthContext` riscritto: chiama `auth-login`, salva profilo in `localStorage` con scadenza **24h** (timestamp `expiresAt`). Toggle "Ricordami" controlla se la sessione persiste o si svuota a chiusura tab (`sessionStorage` vs `localStorage`).
+- Pulsante **Logout** nella sidebar (in basso, vicino al nome utente) con conferma.
+- `RequireAuth` legge expiry e forza redirect a `/login` se scaduta.
+
+## 2. Pagina "Clienti" (solo admin)
+
+- Route `/clienti` mostrata in `AppSidebar` solo se `user.is_admin`.
+- Layout: titolo "Clienti", bottone in alto a destra **"+ Nuovo cliente"** (apre Dialog con form: Studio, Pagano €, Username, Password).
+- Griglia di card stile screenshot allegato (liquid glass coerente col resto): icona, nome **Studio**, badge "active/inactive", riga "Pagano: €X/mese", username, **Toggle "White-Label autorizzato"**, icona **bidone rosso** in alto a destra per eliminare (con conferma).
+- Card si aggiorna in realtime quando admin/utente cambia studio o logo.
+
+## 3. Landing/Login ridisegnata
+
+- `/login` diventa landing pubblica liquid glass: hero "IUSTA — Legal Intelligence per studi infortunistica", 3 sezioni brevi (Analisi AI / Report Professionali / Sicurezza), CTA "Accedi alla piattaforma" che apre la pearl glass card di login esistente in modale o sotto la fold.
+- Niente registrazione, frase "Piattaforma esclusiva — accesso solo su invito".
+- Mantenuto il design pearl/gold attuale, aggiunto contenuto editoriale.
+
+## 4. Share Dialog (fix)
+
+- Problema attuale: il menu/modale non appare. Rivedo `ShareDialog.tsx` → uso un `Dialog` Radix centrato (`fixed inset-0` overlay + content centrato) invece dell'attuale popover/dropdown. Verifico che il trigger nella Floating Action Bar di `ReportView` apra realmente lo stato `open`.
+- Stile liquid glass al centro pagina, copia link con feedback "Copiato!".
+
+## 5. Modelli → PDF "Istanza accesso atti"
+
+- Template `accesso-atti` produce markdown strutturato come il modulo nella foto (campi: Sottoscritto, Codice fiscale, Nato il, Residenza, Tel, Email, In qualità di, Documenti richiesti, Motivazione, Tramite, Allega, Data, Firma) con header destinatario.
+- Edge function `generate-pdf` estesa: se template = `accesso-atti`, genera PDF A4 con layout modulo (linee di compilazione, intestazione box in alto a destra), usando `pdf-lib` o `reportlab` (Deno: `pdf-lib`). I dati mancanti vengono pre-compilati dall'AI usando il caso selezionato + nome studio dell'utente loggato (passato come `studioName` nel body).
+- Aggiungo bottone "Scarica PDF" nella view documento generato in `Modelli.tsx` che chiama `generate-pdf` con `template: "accesso-atti"`.
+
+## 6. White-Label Report
+
+- In `Impostazioni` (rinominato da "Settings"): utente vede campi **Nome Studio** e **Logo** (upload su Storage bucket `case-files/logos/{userId}.png` → URL salvato in `app_users.logo_url`). Visibile solo se `is_authorized = true`, altrimenti mostro card "Funzione white-label non attiva — contatta l'amministratore".
+- `generate-pdf` legge `logo_url` + `studio` dell'utente loggato:
+  - se `is_authorized` → sostituisce header IUSTA col logo cliente
+  - altrimenti → mantiene branding IUSTA
+- Admin nella pagina Clienti vede il logo aggiornato (poll su mount + refetch dopo toggle).
+
+## 7. Rinomina Settings → Impostazioni
+
+- `AppSidebar.tsx`, `Settings.tsx` (route resta `/settings` per non rompere link), label e h1 → "Impostazioni".
 
 ---
 
-## Fase 1 — Source Evidence & PDF Viewer avanzato
-
-Estendere `src/components/SourceEvidence.tsx` e creare `src/components/PdfViewer.tsx`.
-
-- Stato `loading | ready | error` durante `createSignedUrl`; mostrare `Skeleton` mentre carica.
-- Retry automatico (max 2) + pulsante "Ricarica documento" in caso di errore o URL scaduto (>10 min).
-- Installare `@react-pdf-viewer/core` + `@react-pdf-viewer/page-navigation` per rendering inline con `jumpToPage()`.
-- Pulsante flottante "Vai a pag. N" dentro il viewer che chiama `pageNavigationPluginInstance.jumpToPage(n-1)` e applica un overlay dorato animato (fade 1.5s) sulla pagina.
-- Fallback `<embed src="...#page=N">` se la lib pesa troppo.
-- Toast d'errore descrittivo via `sonner` invece di fallimento silenzioso.
-
-## Fase 2 — Export reale multi-formato
-
-Aggiornare `src/components/DownloadDialog.tsx` in un `DropdownMenu` Liquid Glass con 3 voci:
-
-1. **PDF Professionale** → edge function esistente `generate-pdf` (già funzionante).
-2. **Documento Word (.docx)** → edge function esistente `generate-docx`.
-3. **Fascicolo Completo (.zip)** → edge function esistente `generate-fascicolo`.
-
-Refactor logica di download in `src/lib/download.ts`:
-- Funzione unica `triggerDownload(blob, filename)` che usa `URL.createObjectURL` + `<a download>` temporaneo + `revokeObjectURL`.
-- Naming pulito: `IUSTA_Report_{titoloPratica}_{YYYY-MM-DD}.{ext}`.
-- Stato loading per voce, toast successo/errore, gestione errori Supabase con messaggio leggibile.
-- Micro-animazioni `data-[state=open]:animate-in fade-in zoom-in-95` sul dropdown.
-
-Non riscriviamo la generazione lato client con `jspdf`: le edge function attuali producono PDF/DOCX già stilizzati IUSTA, sono più affidabili. Verrà documentato nella risposta.
-
-## Fase 3 — Sharing operativo (già DB-pronto)
-
-Tabella `shared_reports` esiste (token + password_hash + expires_at + view_count).
-
-- Rifinire `ShareDialog.tsx`: opzioni scadenza 24h/7g/30g/Permanente, password opzionale, pulsante "Copia Link" con feedback "Copiato!" via `navigator.clipboard.writeText`, toast Liquid Glass.
-- `SharedReport.tsx`: gate password (se `passwordRequired`), rendering read-only del report con header brandizzato IUSTA, pulsante "Scarica PDF" usando la stessa logica di Fase 2 (no editing), gestione errori (`Link scaduto`, `Password errata`, `Link non valido`).
-- Verifica edge function `get-shared-report` (incremento view_count già presente; semplifico la query).
-
-## Fase 4 — Pagina `/privacy` (Trust Center)
-
-Nuova route `src/pages/Privacy.tsx` registrata in `App.tsx` dentro `AppLayout`. Link nel footer + nella futura pagina Login.
-
-- Hero: titolo serif "La tua riservatezza è il nostro asset più prezioso", sottotitolo "Tecnologia Bancaria applicata al Legal Tech".
-- **Bento Grid 2×2** con `GlassCard interactive glow="gold"`:
-  1. GDPR Compliance UE — icona `ShieldCheck` oro
-  2. Zero-Data Retention — icona `EyeOff`
-  3. Crittografia AES-256 (SSL/TLS + at-rest) — icona `Lock`
-  4. Accesso Protetto — icona `Server`
-- Icone oro `#D4AF37` con `drop-shadow` glow.
-- Sezione citazione "Analisi protetta da segreto professionale: l'IA agisce come un assistente cieco che elabora e dimentica."
-- CTA Liquid Glass "Scarica il Certificato di Compliance" (mockup: genera PDF placeholder lato client).
-
-## Fase 5 — Pagina Login "Pearl Liquid Glass"
-
-Nuova route pubblica `src/pages/Login.tsx` (no auth backend reale per ora — solo UI, redirect su `/`).
-
-- Background: gradiente radiale lavanda/blu polvere + 4-5 div "pearl" (`border-radius:50%`, gradiente radiale bianco perla, blur 20-40px, glow esterno) posizionati asimmetricamente, animazione `@keyframes float` 8-12s ease-in-out infinite alternate.
-- Card centrale: `rounded-[32px]`, `backdrop-blur-[40px] saturate-150`, `bg-white/10`, border `border-white/40`, shadow diffusa `0 30px 80px -20px rgba(0,0,0,0.15)`.
-- Input "pillola" trasparenti con icone `User` / `Lock` interne, placeholder bianco/60.
-- Bottone LOGIN: pillola con gradiente oro tenue (`from-[#D4AF37] to-[#B8941F]`), testo uppercase bold scuro.
-- Checkbox "Remember me" liquid + link "Forgot password?".
-- Sotto il CTA: "Accesso riservato ai partner certificati IUSTA". **Nessun link di registrazione.**
-- Logo IUSTA in alto con effetto metallico (gradient + drop-shadow).
-- Fade-in animato della card al mount.
-
-## Fase 6 — Refactor analisi (Bento Strategic Report)
-
-Refactor `src/components/ReportView.tsx` (mantenendo dati esistenti) in layout Bento:
-
-- **Card "Verdetto di Responsabilità"**: blocco prominente con `LiquidProgress` graduato (es. 70% / 30%) + barra split rosso-soft / verde-smeraldo. Parsing del riassunto: estrarre percentuali se presenti; fallback testuale.
-- **Card "Contraddizioni Rilevate"**: lista interna con badge gravità ("BUGIA TECNICA" `bg-red-500/15 text-red-300`, "INCONGRUENZA TESTIMONIALE" `bg-orange-500/15`). Click → `ContradictionModal` esistente esteso con dettagli espandibili.
-- **Card "Dinamica del Sinistro"**: timeline verticale con marker oro.
-- Ogni punto ha un `<SourceEvidence>` per la prova.
-- **Card "Bozza Atto di Citazione"**: stile "carta pregiata" (`bg-stone-50/95 dark:bg-stone-100/5` con texture sottile SVG noise), pulsante "Copia Testo" con feedback.
-- **Floating Action Bar** in basso (`fixed bottom-6 left-1/2 -translate-x-1/2`) Liquid Glass con: "Scarica PDF", "Condividi", "Esporta Word" — collegati a Fase 2/3.
-- Tipografia: `font-serif` (Playfair) per titoli sezione, `font-mono` per dati tecnici (velocità, distanze, articoli).
-- Colori: rosso `#EF4444`, verde `#10B981`, oro `#D4AF37` per articoli di legge.
-
----
-
-## File toccati (stima)
+## File principali
 
 **Nuovi**
-- `src/pages/Privacy.tsx`
-- `src/pages/Login.tsx`
-- `src/components/PdfViewer.tsx`
-- `src/lib/download.ts`
+- `supabase/migrations/<ts>_app_users.sql`
+- `supabase/functions/auth-login/index.ts`
+- `supabase/functions/auth-create-user/index.ts`
+- `supabase/functions/auth-delete-user/index.ts`
+- `supabase/functions/auth-toggle-authorization/index.ts`
+- `supabase/functions/auth-update-profile/index.ts`
+- `src/pages/Clienti.tsx`
+- `src/components/ClientCard.tsx`
+- `src/components/NewClientDialog.tsx`
+- `src/pages/Landing.tsx` (nuova homepage pubblica, sostituisce route `/login` o `/`)
 
 **Modificati**
-- `src/App.tsx` (route `/privacy`, `/login`)
-- `src/components/SourceEvidence.tsx` (loading/retry, viewer)
-- `src/components/DownloadDialog.tsx` (dropdown 3 formati + filename)
-- `src/components/ShareDialog.tsx` (UI rifinitura)
-- `src/pages/SharedReport.tsx` (gate password + download PDF)
-- `src/components/ReportView.tsx` (Bento layout + FAB)
-- `src/components/ContradictionModal.tsx` (dettagli espandibili)
-- `src/components/AppSidebar.tsx` / footer (link Privacy)
-- `src/index.css` (keyframes `float` per perle, `pageHighlight` per viewer)
-- `supabase/functions/get-shared-report/index.ts` (cleanup query view_count)
+- `src/contexts/AuthContext.tsx` (multi-user, 24h expiry, remember-me)
+- `src/components/RequireAuth.tsx` (admin check helper)
+- `src/App.tsx` (route `/clienti` gated, landing pubblica)
+- `src/components/AppSidebar.tsx` (logout, link Clienti per admin, rename Impostazioni)
+- `src/components/ShareDialog.tsx` (Dialog centrato funzionante)
+- `src/components/ReportView.tsx` (verifica trigger share)
+- `src/pages/Settings.tsx` (rename + sezione white-label)
+- `src/pages/Modelli.tsx` (bottone scarica PDF)
+- `src/lib/templates.ts` (template "accesso-atti" strutturato)
+- `supabase/functions/generate-pdf/index.ts` (layout modulo + white-label)
 
-**Dipendenze nuove**
-- `@react-pdf-viewer/core`, `@react-pdf-viewer/page-navigation`, `pdfjs-dist`
+## Note tecniche
 
-## Out of scope
-- Auth reale (la pagina Login resta UI con redirect simulato finché non chiedi Lovable Cloud Auth).
-- Riscrittura PDF/DOCX lato client con `jspdf`/`docx`: le edge function esistenti sono già operative e producono output di qualità superiore.
-- Modifiche a `src/integrations/supabase/{client,types}.ts`.
+- Le password vengono hashate con `bcrypt` (Deno `https://deno.land/x/bcrypt`) lato edge.
+- Sessione client: oggetto `{ user, expiresAt }` salvato in `localStorage`/`sessionStorage` con chiave `iusta_session`. Niente JWT custom: gli edge function admin-only verificano `x-iusta-user` header contro DB.
+- Bucket `case-files` esistente riusato per i loghi sotto prefix `logos/`.
 
-## Verifica
-1. `/` → analisi → "Scarica" mostra dropdown 3 formati → ognuno scarica file con nome corretto.
-2. Click "Vedi Fonte" su una contraddizione → viewer carica PDF alla pagina giusta, pulsante "Vai a pag. N" funziona.
-3. "Condividi" → genera link → apertura in incognito → password gate → report read-only + download PDF.
-4. `/privacy` raggiungibile, 4 blocchi Bento renderizzati con icone oro.
-5. `/login` mostra perle animate, card glass, nessun link registrazione.
-6. Report renderizzato come Bento con FAB in basso.
+## Fuori scopo
+- Vera auth Supabase (`auth.users`): l'utente vuole sistema custom semplice basato su `username`. Manteniamo così.
+- Reset password / recupero: non richiesto.
