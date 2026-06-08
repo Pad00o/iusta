@@ -27,6 +27,7 @@ const Index = () => {
   const { setOpenMobile, toggleSidebar, state: sidebarState } = useSidebar();
   const online = useOnlineStatus();
   const uploadedFilesRef = useRef<UploadedFileRef[]>([]);
+  const { user } = useAuth();
 
   const {
     messages, setMessages,
