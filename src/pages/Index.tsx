@@ -19,6 +19,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { requestNotificationPermission, notifyIfBackgrounded } from "@/hooks/useBrowserNotifications";
 import { logAnalysis } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
