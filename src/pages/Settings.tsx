@@ -31,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const [showTour, setShowTour] = useState(false);
-  const { user, updateLocalUser, refreshUser } = useAuth();
+  const { user, passwordHash, updateLocalUser, refreshUser } = useAuth();
   const [studio, setStudio] = useState(user?.studio || "");
   const [logoUrl, setLogoUrl] = useState(user?.logo_url || "");
   const [savingStudio, setSavingStudio] = useState(false);
@@ -43,15 +43,30 @@ export default function Settings() {
     setLogoUrl(user?.logo_url || "");
   }, [user?.id, user?.studio, user?.logo_url]);
 
+  // Refresh once on mount, then subscribe to realtime updates on this user's row
+  useEffect(() => {
+    if (!user?.id) return;
+    refreshUser();
+    const channel = supabase
+      .channel(`app_users:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "app_users", filter: `id=eq.${user.id}` },
+        () => { refreshUser(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const canWhiteLabel = !!user?.is_authorized;
 
   const saveStudio = async () => {
-    if (!user) return;
+    if (!user || !passwordHash) return;
     setSavingStudio(true);
-    const { error } = await supabase
-      .from("app_users")
-      .update({ studio })
-      .eq("id", user.id);
+    const { error } = await supabase.functions.invoke("self-update-user", {
+      body: { userId: user.id, passwordHash, patch: { studio } },
+    });
     setSavingStudio(false);
     if (error) {
       toast({ title: "Errore salvataggio", description: error.message, variant: "destructive" });
@@ -62,7 +77,7 @@ export default function Settings() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    if (!user) return;
+    if (!user || !passwordHash) return;
     setUploadingLogo(true);
     try {
       const ext = file.name.split(".").pop() || "png";
@@ -73,10 +88,9 @@ export default function Settings() {
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("case-files").getPublicUrl(path);
       const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
-      const { error: dbErr } = await supabase
-        .from("app_users")
-        .update({ logo_url: publicUrl })
-        .eq("id", user.id);
+      const { error: dbErr } = await supabase.functions.invoke("self-update-user", {
+        body: { userId: user.id, passwordHash, patch: { logo_url: publicUrl } },
+      });
       if (dbErr) throw dbErr;
       setLogoUrl(publicUrl);
       updateLocalUser({ logo_url: publicUrl });

@@ -14,7 +14,7 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { markdown, titoloPratica, caseId } = await req.json();
+    const { markdown, titoloPratica, caseId, studioName, studioLogo } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "Missing markdown" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -25,29 +25,32 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Generate PDF
+    // Generate PDF (forward white-label)
     const pdfRes = await fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-      body: JSON.stringify({ markdown, titoloPratica }),
+      body: JSON.stringify({ markdown, titoloPratica, studioName, studioLogo }),
     });
     if (!pdfRes.ok) throw new Error(`PDF generation failed: ${pdfRes.status}`);
     const pdfBytes = new Uint8Array(await pdfRes.arrayBuffer());
 
-    // Generate DOCX
+    // Generate DOCX (forward white-label)
     const docxRes = await fetch(`${supabaseUrl}/functions/v1/generate-docx`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-      body: JSON.stringify({ markdown, titoloPratica }),
+      body: JSON.stringify({ markdown, titoloPratica, studioName, studioLogo }),
     });
     if (!docxRes.ok) throw new Error(`DOCX generation failed: ${docxRes.status}`);
     const docxBytes = new Uint8Array(await docxRes.arrayBuffer());
 
-    const safeTitle = (titoloPratica || "IUSTA_Pratica").replace(/[^a-zA-Z0-9]/g, "_");
+    const brand = studioName || "IUSTA";
+    const safeBrand = brand.replace(/[^a-zA-Z0-9]/g, "_");
+    const safeTitle = (titoloPratica || `${safeBrand}_Pratica`).replace(/[^a-zA-Z0-9]/g, "_");
+    const folder = `${safeBrand}_${safeTitle}`;
 
     const zip = new JSZip();
-    zip.file(`${safeTitle}/Report.pdf`, pdfBytes);
-    zip.file(`${safeTitle}/Bozza_Atto_di_Citazione.docx`, docxBytes);
+    zip.file(`${folder}/Report.pdf`, pdfBytes);
+    zip.file(`${folder}/Bozza_Atto_di_Citazione.docx`, docxBytes);
 
     // Try to fetch original uploaded files for the case
     const docs: { name: string; bytes: Uint8Array }[] = [];
@@ -61,33 +64,33 @@ serve(async (req) => {
             if (error || !data) continue;
             const buf = new Uint8Array(await data.arrayBuffer());
             docs.push({ name: f.name || f.path.split("/").pop(), bytes: buf });
-            zip.file(`${safeTitle}/Documenti_Originali/${f.name || f.path.split("/").pop()}`, buf);
+            zip.file(`${folder}/Documenti_Originali/${f.name || f.path.split("/").pop()}`, buf);
           } catch (e) { console.warn("doc fetch failed", e); }
         }
       } catch (e) { console.warn("case lookup failed", e); }
     }
 
     const indice = [
-      `IUSTA — Fascicolo Pro`,
+      `${brand} — Fascicolo Pro`,
       `Pratica: ${titoloPratica || "(senza titolo)"}`,
       `Generato il: ${new Date().toLocaleString("it-IT")}`,
       ``,
       `Contenuto del fascicolo:`,
       `  • Report.pdf — Analisi tecnico-giuridica completa`,
-      `  • Bozza_Atto_di_Citazione.docx — Bozza Word formattata IUSTA`,
+      `  • Bozza_Atto_di_Citazione.docx — Bozza Word formattata`,
       docs.length ? `  • Documenti_Originali/ — ${docs.length} file caricati` : `  • (nessun documento originale allegato)`,
       ``,
-      `Documento riservato. Il presente fascicolo è prodotto da IUSTA a supporto`,
+      `Documento riservato. Il presente fascicolo è prodotto a supporto`,
       `dell'attività professionale. Ogni valutazione finale resta in capo al legale.`,
     ].join("\n");
-    zip.file(`${safeTitle}/Indice.txt`, indice);
+    zip.file(`${folder}/Indice.txt`, indice);
 
     const zipBytes: Uint8Array = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
     return new Response(zipBytes, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${safeTitle}_Fascicolo_Pro.zip"`,
+        "Content-Disposition": `attachment; filename="${folder}_Fascicolo_Pro.zip"`,
       },
     });
   } catch (e) {
