@@ -12,6 +12,7 @@ import { Download, FileText, Package, Loader2, FileType2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDownload, buildReportFilename } from "@/lib/download";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DownloadDialogProps {
   onExportPdf: () => void | Promise<void>;
@@ -31,6 +32,10 @@ export function DownloadDialog({
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
+  const { user } = useAuth();
+
+  const studioName = user?.is_authorized ? user.studio || null : null;
+  const studioLogo = user?.is_authorized ? user.logo_url || null : null;
 
   const handlePdf = async () => {
     setLoadingPdf(true);
@@ -48,7 +53,7 @@ export function DownloadDialog({
     setLoadingDocx(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-docx", {
-        body: { markdown, titoloPratica },
+        body: { markdown, titoloPratica, studioName, studioLogo },
       });
       if (error) throw error;
       const blob = data instanceof Blob
@@ -70,13 +75,13 @@ export function DownloadDialog({
     setLoadingZip(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-fascicolo", {
-        body: { markdown, titoloPratica, caseId },
+        body: { markdown, titoloPratica, caseId, studioName, studioLogo },
       });
       if (error) throw error;
       const blob = data instanceof Blob
         ? data
         : new Blob([data as any], { type: "application/zip" });
-      triggerDownload(blob, buildReportFilename(titoloPratica, "zip", "IUSTA_Fascicolo"));
+      triggerDownload(blob, buildReportFilename(titoloPratica, "zip", `${studioName || "IUSTA"}_Fascicolo`));
       toast.success("Fascicolo Pro generato", { description: "Pacchetto ZIP scaricato." });
     } catch (e: any) {
       console.error(e);

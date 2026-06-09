@@ -167,14 +167,15 @@ function buildChildren(markdown: string): any[] {
   return out;
 }
 
-async function buildDocx(markdown: string, titoloPratica?: string): Promise<Uint8Array> {
+async function buildDocx(markdown: string, titoloPratica?: string, studioName?: string | null): Promise<Uint8Array> {
   const dateStr = new Date().toLocaleDateString("it-IT");
+  const brand = studioName || "IUSTA";
 
   const cover: any[] = [
     new Paragraph({
       alignment: AlignmentType.LEFT,
       spacing: { before: 600, after: 80 },
-      children: [new TextRun({ text: "IUSTA", bold: true, size: 56, color: NAVY, font: "Cambria" })],
+      children: [new TextRun({ text: brand, bold: true, size: 56, color: NAVY, font: "Cambria" })],
     }),
     new Paragraph({
       spacing: { after: 200 },
@@ -199,8 +200,8 @@ async function buildDocx(markdown: string, titoloPratica?: string): Promise<Uint
   const body = buildChildren(markdown);
 
   const doc = new Document({
-    creator: "IUSTA",
-    title: titoloPratica || "IUSTA Report",
+    creator: brand,
+    title: titoloPratica || `${brand} Report`,
     description: "Report di Analisi Tecnico-Giuridica",
     styles: {
       default: {
@@ -237,7 +238,7 @@ async function buildDocx(markdown: string, titoloPratica?: string): Promise<Uint
             alignment: AlignmentType.LEFT,
             border: { bottom: { color: GOLD, style: BorderStyle.SINGLE, size: 6, space: 4 } },
             children: [
-              new TextRun({ text: "IUSTA", bold: true, size: 18, color: NAVY }),
+              new TextRun({ text: brand, bold: true, size: 18, color: NAVY }),
               new TextRun({ text: "   |   Report di Analisi Tecnico-Giuridica", size: 16, color: SUBTLE }),
             ],
           })],
@@ -268,15 +269,16 @@ async function buildDocx(markdown: string, titoloPratica?: string): Promise<Uint
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { markdown, titoloPratica } = await req.json();
+    const { markdown, titoloPratica, studioName } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "No markdown provided" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const bytes = await buildDocx(markdown, titoloPratica);
-    const fileName = (titoloPratica || "IUSTA_Report").replace(/[^a-zA-Z0-9]/g, "_") + ".docx";
+    const bytes = await buildDocx(markdown, titoloPratica, studioName || null);
+    const brand = (studioName || "IUSTA").replace(/[^a-zA-Z0-9]/g, "_");
+    const fileName = (titoloPratica || `${brand}_Report`).replace(/[^a-zA-Z0-9]/g, "_") + ".docx";
     return new Response(bytes, {
       headers: {
         ...corsHeaders,

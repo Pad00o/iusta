@@ -79,7 +79,7 @@ export function ShareDialog({ caseId, trigger }: ShareDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md glass-strong">
+      <DialogContent className="sm:max-w-md glass-strong top-1/2 -translate-y-1/2 max-h-[85vh] overflow-y-auto z-[100]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-serif">
             <Share2 className="h-5 w-5 text-primary" /> Condividi Report
