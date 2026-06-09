@@ -1,94 +1,110 @@
-# Piano di implementazione
+# Obiettivi
 
-## 1. Autenticazione multi-utente + Admin
-
-**Database (nuova tabella `app_users`)**
-- `id uuid PK`, `username text UNIQUE`, `password_hash text`, `studio text`, `pagano numeric`, `logo_url text`, `is_admin bool`, `is_authorized bool` (toggle white-label), `created_at`.
-- Seed: `pado` / `ADMIN` con `is_admin = true`, `is_authorized = true`.
-- RLS aperta (validazione lato edge function); GRANT a `anon`/`authenticated`/`service_role`.
-
-**Edge functions**
-- `auth-login`: riceve `{username, password}`, verifica hash, restituisce profilo utente (no JWT custom — manteniamo session client-side firmata).
-- `auth-create-user` (solo admin): crea cliente con `studio`, `pagano`, `username`, `password`.
-- `auth-delete-user` (solo admin): elimina cliente.
-- `auth-toggle-authorization` (solo admin): flip `is_authorized`.
-- `auth-update-profile`: utente aggiorna proprio `studio` e `logo_url`.
-
-**Frontend**
-- `AuthContext` riscritto: chiama `auth-login`, salva profilo in `localStorage` con scadenza **24h** (timestamp `expiresAt`). Toggle "Ricordami" controlla se la sessione persiste o si svuota a chiusura tab (`sessionStorage` vs `localStorage`).
-- Pulsante **Logout** nella sidebar (in basso, vicino al nome utente) con conferma.
-- `RequireAuth` legge expiry e forza redirect a `/login` se scaduta.
-
-## 2. Pagina "Clienti" (solo admin)
-
-- Route `/clienti` mostrata in `AppSidebar` solo se `user.is_admin`.
-- Layout: titolo "Clienti", bottone in alto a destra **"+ Nuovo cliente"** (apre Dialog con form: Studio, Pagano €, Username, Password).
-- Griglia di card stile screenshot allegato (liquid glass coerente col resto): icona, nome **Studio**, badge "active/inactive", riga "Pagano: €X/mese", username, **Toggle "White-Label autorizzato"**, icona **bidone rosso** in alto a destra per eliminare (con conferma).
-- Card si aggiorna in realtime quando admin/utente cambia studio o logo.
-
-## 3. Landing/Login ridisegnata
-
-- `/login` diventa landing pubblica liquid glass: hero "IUSTA — Legal Intelligence per studi infortunistica", 3 sezioni brevi (Analisi AI / Report Professionali / Sicurezza), CTA "Accedi alla piattaforma" che apre la pearl glass card di login esistente in modale o sotto la fold.
-- Niente registrazione, frase "Piattaforma esclusiva — accesso solo su invito".
-- Mantenuto il design pearl/gold attuale, aggiunto contenuto editoriale.
-
-## 4. Share Dialog (fix)
-
-- Problema attuale: il menu/modale non appare. Rivedo `ShareDialog.tsx` → uso un `Dialog` Radix centrato (`fixed inset-0` overlay + content centrato) invece dell'attuale popover/dropdown. Verifico che il trigger nella Floating Action Bar di `ReportView` apra realmente lo stato `open`.
-- Stile liquid glass al centro pagina, copia link con feedback "Copiato!".
-
-## 5. Modelli → PDF "Istanza accesso atti"
-
-- Template `accesso-atti` produce markdown strutturato come il modulo nella foto (campi: Sottoscritto, Codice fiscale, Nato il, Residenza, Tel, Email, In qualità di, Documenti richiesti, Motivazione, Tramite, Allega, Data, Firma) con header destinatario.
-- Edge function `generate-pdf` estesa: se template = `accesso-atti`, genera PDF A4 con layout modulo (linee di compilazione, intestazione box in alto a destra), usando `pdf-lib` o `reportlab` (Deno: `pdf-lib`). I dati mancanti vengono pre-compilati dall'AI usando il caso selezionato + nome studio dell'utente loggato (passato come `studioName` nel body).
-- Aggiungo bottone "Scarica PDF" nella view documento generato in `Modelli.tsx` che chiama `generate-pdf` con `template: "accesso-atti"`.
-
-## 6. White-Label Report
-
-- In `Impostazioni` (rinominato da "Settings"): utente vede campi **Nome Studio** e **Logo** (upload su Storage bucket `case-files/logos/{userId}.png` → URL salvato in `app_users.logo_url`). Visibile solo se `is_authorized = true`, altrimenti mostro card "Funzione white-label non attiva — contatta l'amministratore".
-- `generate-pdf` legge `logo_url` + `studio` dell'utente loggato:
-  - se `is_authorized` → sostituisce header IUSTA col logo cliente
-  - altrimenti → mantiene branding IUSTA
-- Admin nella pagina Clienti vede il logo aggiornato (poll su mount + refetch dopo toggle).
-
-## 7. Rinomina Settings → Impostazioni
-
-- `AppSidebar.tsx`, `Settings.tsx` (route resta `/settings` per non rompere link), label e h1 → "Impostazioni".
+1. White-label esteso a **tutti** i PDF/DOCX/Fascicolo (Analisi + Modelli) quando il toggle è attivo.
+2. Sync in tempo reale: aggiornamenti studio/logo visibili immediatamente sia all'admin (pagina Clienti) sia al cliente (Impostazioni).
+3. Permessi: solo admin può creare/eliminare clienti; ogni cliente vede solo i propri dati.
+4. Pulsante Condividi → modale centrata sempre funzionante (anche dal viewer/floating bar).
+5. Dialog "Nuovo cliente" centrato verticalmente sullo schermo.
 
 ---
 
-## File principali
+## 1. White-label su tutti i formati di export
+
+**Frontend — `DownloadDialog.tsx`**
+- Leggere `user` da `useAuth()` e inviare `studioName` + `studioLogo` (solo se `user.is_authorized`) a `generate-docx` e `generate-fascicolo`, esattamente come già avviene per `generate-pdf`.
+
+**Edge function — `generate-docx/index.ts`**
+- Accettare `studioName`, `studioLogo` nel body.
+- Sostituire header/footer del file DOCX con `studioName` quando presente; inserire il logo come immagine inline nell'header.
+
+**Edge function — `generate-fascicolo/index.ts`**
+- Inoltrare `studioName` e `studioLogo` nella chiamata interna a `generate-pdf` (oggi non lo fa).
+- Rinominare la cartella interna dello zip in `{Studio || "IUSTA"}_Fascicolo/`.
+
+**Modelli (`Modelli.tsx`)** — già passa i campi a `generate-pdf`. Verificare che funzioni anche dopo il fix (nessuna modifica funzionale prevista).
+
+---
+
+## 2. Sync admin ↔ cliente in tempo reale
+
+**`Clienti.tsx`**
+- Aggiungere un dialog "Modifica cliente" (icona matita su ogni `ClientCard`) per cambiare `studio`, `pagano`, `logo_url` direttamente dall'admin.
+- Sottoscrizione realtime alla tabella `app_users` (`supabase.channel('app_users').on('postgres_changes', ...)`) per riflettere modifiche fatte dai clienti in Impostazioni.
+
+**`AuthContext.tsx` / `Settings.tsx`**
+- In `Settings.tsx` aggiungere una sottoscrizione realtime sulla **propria** riga `app_users` (filter `id=eq.<user.id>`): a ogni `UPDATE` chiamare `refreshUser()` così l'utente vede in pochi secondi le modifiche fatte dall'admin (es. nuovo nome studio, toggle white-label).
+- All'avvio di `Settings.tsx` invocare `refreshUser()` per partire sempre dai dati freschi del DB.
+
+---
+
+## 3. Permessi rigorosi (admin-only operations)
+
+**Migration RLS su `app_users`**
+- Sostituire la policy permissiva attuale (`Allow all access … using:true check:true`) con:
+  - `SELECT`: ogni utente può leggere solo la riga con `id = current_setting('request.headers')::json->>'x-iusta-user-id'`. Admin (verificato via funzione `public.is_iusta_admin(uuid)` `SECURITY DEFINER`) può leggere tutto.
+  - `INSERT` / `DELETE`: solo se `public.is_iusta_admin(<header user id>)` è true.
+  - `UPDATE`: cliente può aggiornare solo la propria riga e solo i campi non sensibili (`studio`, `logo_url`); admin può aggiornare tutto.
+  - `GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_users TO anon, authenticated; GRANT ALL TO service_role;` (necessario perché il client non passa per `auth.users`).
+- Funzione `public.is_iusta_admin(_id uuid)` security-definer che ritorna `true` se quella riga ha `is_admin=true`.
+
+**Client — header automatico**
+- In `src/integrations/supabase/client.ts` **non si può modificare** (auto-gen). Soluzione: nuovo helper `src/lib/supa.ts` che esporta `withUser(supabase)` aggiungendo l'header `x-iusta-user-id` via `supabase.rest.headers` su ogni richiesta dopo il login (impostato in `AuthContext` quando l'utente entra; rimosso al logout).
+- In alternativa più semplice e robusta: spostare le operazioni admin-only (`insertUser`, `deleteUser`, `toggleAuth`, `updateClient`) dietro a 4 nuove edge function (`admin-create-user`, `admin-delete-user`, `admin-update-user`, `admin-toggle-auth`) che ricevono `{adminId, adminPasswordHash}` e verificano contro `app_users` prima di eseguire con `service_role`. Le RLS bloccano qualunque tentativo dal client.
+
+> **Approccio scelto: edge functions admin-only + RLS strette.** È l'unica soluzione realmente sicura senza Supabase Auth.
+
+**Refactor frontend**
+- `Clienti.tsx`: sostituire le chiamate `supabase.from("app_users").insert/delete/update` con `supabase.functions.invoke("admin-*", { body: { adminId, adminPasswordHash, ... } })`.
+- `Settings.tsx`: l'update studio/logo del proprio profilo passa per una nuova `self-update-user` (riceve `userId + passwordHash` come prova di identità, aggiorna solo la propria riga).
+- `AuthContext.login`: passare a edge function `auth-login` che ritorna i dati pubblici dell'utente, senza esporre `password_hash` al client (rimuovere uso diretto di `select * from app_users`).
+
+---
+
+## 4. Fix pulsante Condividi e modale centrata
+
+**Diagnosi**
+- `ShareDialog` viene renderizzato **due volte** in `ReportView.tsx` (header + floating bar). Avere due `Dialog` indipendenti con lo stesso stato interno non crea conflitti, ma il `DialogTrigger asChild` con un bottone custom dentro la floating bar (z-index alto, `pointer-events`) può intercettare male il click.
+
+**Fix**
+- Convertire `ShareDialog` in componente **controllato** (`open` / `onOpenChange` come prop opzionali) con un metodo `openShareDialog(caseId)` esposto via un context leggero (`ShareContext`) montato in `ReportView`. Header e floating bar invocano lo stesso dialog singleton centrato.
+- `DialogContent`: forzare `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]` e `max-h-[90vh] overflow-y-auto`.
+- Verifica click: rimuovere eventuali `e.stopPropagation()` nei wrapper della floating bar.
+
+---
+
+## 5. Modale "Nuovo cliente" centrata
+
+**`Clienti.tsx`**
+- Aggiungere a `DialogContent` le classi: `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] overflow-y-auto sm:max-w-md`.
+- Rimuovere qualsiasi `mt-*` ereditato dal contenitore padre. (Il problema attuale è che il dialog eredita stile `top-[50%]` ma il body ha scroll → appare in basso quando la pagina è scrollata. Forzando `fixed` centra rispetto al viewport.)
+- Applicare lo stesso fix alla modale "Modifica cliente" (nuova) e a `AlertDialog` di eliminazione.
+
+---
+
+## File toccati
 
 **Nuovi**
-- `supabase/migrations/<ts>_app_users.sql`
+- `supabase/migrations/<ts>_app_users_rls_strict.sql` (RLS + `is_iusta_admin`)
+- `supabase/functions/admin-create-user/index.ts`
+- `supabase/functions/admin-delete-user/index.ts`
+- `supabase/functions/admin-update-user/index.ts`
+- `supabase/functions/admin-toggle-auth/index.ts`
 - `supabase/functions/auth-login/index.ts`
-- `supabase/functions/auth-create-user/index.ts`
-- `supabase/functions/auth-delete-user/index.ts`
-- `supabase/functions/auth-toggle-authorization/index.ts`
-- `supabase/functions/auth-update-profile/index.ts`
-- `src/pages/Clienti.tsx`
-- `src/components/ClientCard.tsx`
-- `src/components/NewClientDialog.tsx`
-- `src/pages/Landing.tsx` (nuova homepage pubblica, sostituisce route `/login` o `/`)
+- `supabase/functions/self-update-user/index.ts`
+- `src/components/EditClientDialog.tsx`
+- `src/contexts/ShareContext.tsx`
 
 **Modificati**
-- `src/contexts/AuthContext.tsx` (multi-user, 24h expiry, remember-me)
-- `src/components/RequireAuth.tsx` (admin check helper)
-- `src/App.tsx` (route `/clienti` gated, landing pubblica)
-- `src/components/AppSidebar.tsx` (logout, link Clienti per admin, rename Impostazioni)
-- `src/components/ShareDialog.tsx` (Dialog centrato funzionante)
-- `src/components/ReportView.tsx` (verifica trigger share)
-- `src/pages/Settings.tsx` (rename + sezione white-label)
-- `src/pages/Modelli.tsx` (bottone scarica PDF)
-- `src/lib/templates.ts` (template "accesso-atti" strutturato)
-- `supabase/functions/generate-pdf/index.ts` (layout modulo + white-label)
+- `src/components/DownloadDialog.tsx` (white-label su DOCX/ZIP)
+- `src/components/ShareDialog.tsx` (controllato, centratura forzata)
+- `src/components/ReportView.tsx` (ShareContext, singleton dialog)
+- `src/pages/Clienti.tsx` (edge functions, realtime, dialog centrato, edit dialog)
+- `src/pages/Settings.tsx` (realtime su propria riga, self-update via function)
+- `src/contexts/AuthContext.tsx` (login via edge function, niente password_hash nel client)
+- `supabase/functions/generate-docx/index.ts` (header studio + logo)
+- `supabase/functions/generate-fascicolo/index.ts` (forward white-label + naming)
 
-## Note tecniche
-
-- Le password vengono hashate con `bcrypt` (Deno `https://deno.land/x/bcrypt`) lato edge.
-- Sessione client: oggetto `{ user, expiresAt }` salvato in `localStorage`/`sessionStorage` con chiave `iusta_session`. Niente JWT custom: gli edge function admin-only verificano `x-iusta-user` header contro DB.
-- Bucket `case-files` esistente riusato per i loghi sotto prefix `logos/`.
-
-## Fuori scopo
-- Vera auth Supabase (`auth.users`): l'utente vuole sistema custom semplice basato su `username`. Manteniamo così.
-- Reset password / recupero: non richiesto.
+## Out of scope
+- Reset password / cambio username
+- Migrazione a Supabase Auth reale (richiederebbe rewrite)
+- Cambio password dall'interfaccia (può essere aggiunto in un secondo step)
