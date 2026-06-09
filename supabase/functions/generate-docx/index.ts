@@ -265,115 +265,20 @@ async function buildDocx(markdown: string, titoloPratica?: string, studioName?: 
   const buf = await Packer.toBuffer(doc);
   return new Uint8Array(buf);
 }
-  const dateStr = new Date().toLocaleDateString("it-IT");
-
-  const cover: any[] = [
-    new Paragraph({
-      alignment: AlignmentType.LEFT,
-      spacing: { before: 600, after: 80 },
-      children: [new TextRun({ text: "IUSTA", bold: true, size: 56, color: NAVY, font: "Cambria" })],
-    }),
-    new Paragraph({
-      spacing: { after: 200 },
-      border: { bottom: { color: GOLD, style: BorderStyle.SINGLE, size: 12, space: 6 } },
-      children: [new TextRun({ text: "Report di Analisi Tecnico-Giuridica", size: 24, color: SUBTLE })],
-    }),
-    new Paragraph({
-      spacing: { before: 200, after: 80 },
-      children: [new TextRun({ text: clean(titoloPratica || "Pratica"), bold: true, size: 36, color: NAVY, font: "Cambria" })],
-    }),
-    new Paragraph({
-      spacing: { after: 200 },
-      children: [new TextRun({ text: `Data di emissione: ${dateStr}`, size: 22, color: SUBTLE })],
-    }),
-    new Paragraph({
-      spacing: { after: 600 },
-      children: [new TextRun({ text: "Documento riservato — Infortunistica Stradale", size: 18, italics: true, color: SUBTLE })],
-    }),
-    new Paragraph({ children: [new PageBreak()] }),
-  ];
-
-  const body = buildChildren(markdown);
-
-  const doc = new Document({
-    creator: "IUSTA",
-    title: titoloPratica || "IUSTA Report",
-    description: "Report di Analisi Tecnico-Giuridica",
-    styles: {
-      default: {
-        document: { run: { font: "Calibri", size: 22 } },
-      },
-      paragraphStyles: [
-        { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 36, bold: true, font: "Cambria", color: NAVY },
-          paragraph: { spacing: { before: 320, after: 160 }, outlineLevel: 0 } },
-        { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 28, bold: true, font: "Cambria", color: NAVY },
-          paragraph: { spacing: { before: 280, after: 120 }, outlineLevel: 1 } },
-        { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 24, bold: true, font: "Cambria", color: NAVY_DARK },
-          paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 2 } },
-      ],
-    },
-    numbering: {
-      config: [
-        { reference: "iusta-bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
-        { reference: "iusta-numbers", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
-      ],
-    },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: 11906, height: 16838 }, // A4
-          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-        },
-      },
-      headers: {
-        default: new Header({
-          children: [new Paragraph({
-            alignment: AlignmentType.LEFT,
-            border: { bottom: { color: GOLD, style: BorderStyle.SINGLE, size: 6, space: 4 } },
-            children: [
-              new TextRun({ text: "IUSTA", bold: true, size: 18, color: NAVY }),
-              new TextRun({ text: "   |   Report di Analisi Tecnico-Giuridica", size: 16, color: SUBTLE }),
-            ],
-          })],
-        }),
-      },
-      footers: {
-        default: new Footer({
-          children: [new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({ text: "Pagina ", size: 16, color: SUBTLE }),
-              new TextRun({ children: [PageNumber.CURRENT], size: 16, color: SUBTLE }),
-              new TextRun({ text: " di ", size: 16, color: SUBTLE }),
-              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: SUBTLE }),
-              new TextRun({ text: "   —   Documento Riservato", size: 16, color: SUBTLE }),
-            ],
-          })],
-        }),
-      },
-      children: [...cover, ...body],
-    }],
-  });
-
-  const buf = await Packer.toBuffer(doc);
-  return new Uint8Array(buf);
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { markdown, titoloPratica } = await req.json();
+    const { markdown, titoloPratica, studioName } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "No markdown provided" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const bytes = await buildDocx(markdown, titoloPratica);
-    const fileName = (titoloPratica || "IUSTA_Report").replace(/[^a-zA-Z0-9]/g, "_") + ".docx";
+    const bytes = await buildDocx(markdown, titoloPratica, studioName || null);
+    const brand = (studioName || "IUSTA").replace(/[^a-zA-Z0-9]/g, "_");
+    const fileName = (titoloPratica || `${brand}_Report`).replace(/[^a-zA-Z0-9]/g, "_") + ".docx";
     return new Response(bytes, {
       headers: {
         ...corsHeaders,
