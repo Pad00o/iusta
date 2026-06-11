@@ -3,14 +3,35 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-iusta-user-id, x-iusta-password-hash",
 };
+
+async function verifyCaller(req: Request, supabase: any): Promise<{ id: string } | null> {
+  const userId = req.headers.get("x-iusta-user-id");
+  const passwordHash = req.headers.get("x-iusta-password-hash");
+  if (!userId || !passwordHash) return null;
+  try {
+    const { data } = await supabase.from("app_users").select("id,password_hash").eq("id", userId).maybeSingle();
+    if (!data || data.password_hash !== passwordHash) return null;
+    return { id: data.id };
+  } catch { return null; }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const caller = await verifyCaller(req, supa);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Non autorizzato" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const { caseId, report } = await req.json();
-    if (!report) throw new Error("missing report");
+    if (!report || typeof report !== "string") throw new Error("missing report");
+    if (report.length > 80_000) throw new Error("report too large");
+    if (caseId && typeof caseId !== "string") throw new Error("invalid caseId");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -28,7 +49,6 @@ serve(async (req) => {
     const summary = j.choices?.[0]?.message?.content?.trim() || "";
 
     if (caseId && summary) {
-      const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       await supa.from("cases").update({ report_summary: summary, status: "completato" }).eq("id", caseId);
     }
 

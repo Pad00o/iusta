@@ -13,11 +13,17 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const { username, password } = await req.json();
     if (!username || !password) return json({ error: "Credenziali mancanti" }, 400);
+    if (typeof password !== "string" || password.length > 256) return json({ error: "Credenziali non valide" }, 400);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -30,13 +36,14 @@ serve(async (req) => {
       .maybeSingle();
 
     if (error) return json({ error: error.message }, 500);
-    if (!data || data.password_hash !== password) {
+    const incomingHash = await sha256Hex(password);
+    if (!data || data.password_hash !== incomingHash) {
       return json({ error: "Credenziali errate" }, 401);
     }
 
-    // Strip password_hash before returning
     const { password_hash: _ph, ...safe } = data as any;
-    return json({ user: safe });
+    // Return the hash as the session token so the client never has to store the plaintext.
+    return json({ user: safe, passwordHash: incomingHash });
   } catch (e: any) {
     return json({ error: e?.message || "Errore" }, 500);
   }

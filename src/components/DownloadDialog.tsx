@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Package, Loader2, FileType2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeAuthed } from "@/lib/authed-invoke";
 import { triggerDownload, buildReportFilename } from "@/lib/download";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -52,7 +52,7 @@ export function DownloadDialog({
   const handleDocx = async () => {
     setLoadingDocx(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-docx", {
+      const { data, error } = await invokeAuthed("generate-docx", {
         body: { markdown, titoloPratica, studioName, studioLogo },
       });
       if (error) throw error;
@@ -74,7 +74,7 @@ export function DownloadDialog({
   const handleZip = async () => {
     setLoadingZip(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-fascicolo", {
+      const { data, error } = await invokeAuthed("generate-fascicolo", {
         body: { markdown, titoloPratica, caseId, studioName, studioLogo },
       });
       if (error) throw error;

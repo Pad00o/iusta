@@ -79,7 +79,7 @@ export default function Modelli() {
     setDownloadingPdf(true);
     try {
       const titolo = `${selectedTemplate.name}${selectedCase ? " - " + (selectedCase.titoloPratica || selectedCase.title) : ""}`;
-      const { data, error } = await supabase.functions.invoke("generate-pdf", {
+      const { data, error } = await (await import("@/lib/authed-invoke")).invokeAuthed("generate-pdf", {
         body: {
           markdown: generatedDoc,
           titoloPratica: titolo,
