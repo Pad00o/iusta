@@ -1,10 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-iusta-user-id, x-iusta-password-hash, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const MAX_PAYLOAD_BYTES = 12 * 1024 * 1024; // 12 MB total request body
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_CHARS = 200_000;
+const MAX_FILES = 10;
+
+async function verifyCaller(userId: string | null, passwordHash: string | null): Promise<boolean> {
+  if (!userId || !passwordHash) return false;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data } = await supabase
+      .from("app_users")
+      .select("id,password_hash")
+      .eq("id", userId)
+      .maybeSingle();
+    return !!data && data.password_hash === passwordHash;
+  } catch {
+    return false;
+  }
+}
 
 const SYSTEM_PROMPT = `# RUOLO
 Sei "IUSTA", un Senior Legal Analyst & Traffic Accident Reconstruction Expert specializzato in infortunistica stradale italiana (Codice della Strada, Italia 2026).
@@ -92,7 +116,46 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, files } = await req.json();
+    // Authn: verify caller against app_users
+    const userId = req.headers.get("x-iusta-user-id");
+    const passwordHash = req.headers.get("x-iusta-password-hash");
+    if (!(await verifyCaller(userId, passwordHash))) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Payload size guard
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_PAYLOAD_BYTES) {
+      return new Response(JSON.stringify({ error: "Payload troppo grande" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { messages, files } = JSON.parse(rawBody) as { messages: any[]; files?: any[] };
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) {
+      return new Response(JSON.stringify({ error: "Numero di messaggi non valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    for (const m of messages) {
+      if (typeof m?.content !== "string" || m.content.length > MAX_MESSAGE_CHARS) {
+        return new Response(JSON.stringify({ error: "Messaggio troppo lungo" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    if (Array.isArray(files) && files.length > MAX_FILES) {
+      return new Response(JSON.stringify({ error: "Troppi file allegati" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
