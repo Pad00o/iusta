@@ -109,6 +109,9 @@ export default function Storico() {
     if (selectedIds.size === 0) { toast({ title: "Seleziona almeno 1 caso" }); return; }
     setExporting(true);
     try {
+      const sessionRaw =
+        localStorage.getItem("iusta_session_v2") || sessionStorage.getItem("iusta_session_v2");
+      const session = sessionRaw ? JSON.parse(sessionRaw) : null;
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-cases-zip`,
         {
@@ -116,6 +119,8 @@ export default function Storico() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            ...(session?.user?.id ? { "x-iusta-user-id": session.user.id } : {}),
+            ...(session?.passwordHash ? { "x-iusta-password-hash": session.passwordHash } : {}),
           },
           body: JSON.stringify({ caseIds: [...selectedIds] }),
         }

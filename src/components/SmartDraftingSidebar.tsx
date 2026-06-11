@@ -23,8 +23,7 @@ export function SmartDraftingSidebar({ report, enabled }: Props) {
     if (!enabled || !report || items.length) return;
     let cancel = false;
     setLoading(true);
-    supabase.functions
-      .invoke("draft-suggestions", { body: { report } })
+    import("@/lib/authed-invoke").then(({ invokeAuthed }) => invokeAuthed("draft-suggestions", { body: { report } }))
       .then(({ data, error }) => {
         if (cancel) return;
         if (error) throw error;
