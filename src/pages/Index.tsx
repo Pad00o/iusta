@@ -174,7 +174,7 @@ const Index = () => {
             });
             // fire-and-forget summary
             try {
-              await supabase.functions.invoke("summarize-case", {
+              await (await import("@/lib/authed-invoke")).invokeAuthed("summarize-case", {
                 body: { caseId: saved?.id || workingCaseId, report: assistantSoFar },
               });
             } catch (e) { console.warn("summarize failed", e); }
@@ -244,7 +244,7 @@ const Index = () => {
     if (caseId) saveCaseVersion(caseId, messages, `Prima di rigenerare: ${sectionTitle}`).catch(() => {});
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("regenerate-section", {
+      const { data, error } = await (await import("@/lib/authed-invoke")).invokeAuthed("regenerate-section", {
         body: { sectionTitle, currentReport: reportMsg.content, caseId },
       });
       if (error) throw error;

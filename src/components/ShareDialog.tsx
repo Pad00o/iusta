@@ -33,7 +33,7 @@ export function ShareDialog({ caseId, trigger }: ShareDialogProps) {
   const generate = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-share", {
+      const { data, error } = await (await import("@/lib/authed-invoke")).invokeAuthed("create-share", {
         body: {
           caseId,
           expiresInHours: expiry === "0" ? null : Number(expiry),
