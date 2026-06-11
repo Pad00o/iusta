@@ -116,7 +116,46 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, files } = await req.json();
+    // Authn: verify caller against app_users
+    const userId = req.headers.get("x-iusta-user-id");
+    const passwordHash = req.headers.get("x-iusta-password-hash");
+    if (!(await verifyCaller(userId, passwordHash))) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Payload size guard
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_PAYLOAD_BYTES) {
+      return new Response(JSON.stringify({ error: "Payload troppo grande" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { messages, files } = JSON.parse(rawBody) as { messages: any[]; files?: any[] };
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) {
+      return new Response(JSON.stringify({ error: "Numero di messaggi non valido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    for (const m of messages) {
+      if (typeof m?.content !== "string" || m.content.length > MAX_MESSAGE_CHARS) {
+        return new Response(JSON.stringify({ error: "Messaggio troppo lungo" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    if (Array.isArray(files) && files.length > MAX_FILES) {
+      return new Response(JSON.stringify({ error: "Troppi file allegati" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
