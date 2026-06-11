@@ -91,18 +91,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.functions.invoke("auth-login", {
       body: { username, password },
     });
-    if (error || !data?.user) return false;
+    if (error || !data?.user || !data?.passwordHash) return false;
     const u = toAppUser(data.user);
     const session: StoredSession = {
       user: u,
-      passwordHash: password,
+      passwordHash: data.passwordHash, // sha256 of the password — used as session token only
       expiresAt: Date.now() + SESSION_HOURS * 60 * 60 * 1000,
       remember: rememberMe,
     };
     writeStored(session);
     setRemember(rememberMe);
     setUser(u);
-    setPasswordHash(password);
+    setPasswordHash(data.passwordHash);
     return true;
   };
 
