@@ -478,7 +478,7 @@ export default function Clienti() {
       </Dialog>
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
-        <AlertDialogContent className="top-1/2 -translate-y-1/2">
+        <AlertDialogContent className="!top-[8vh] !translate-y-0">
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare {toDelete?.studio}?</AlertDialogTitle>
             <AlertDialogDescription>
