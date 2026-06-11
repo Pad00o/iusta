@@ -8,6 +8,19 @@ export type FileAttachment = {
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const SESSION_KEY = "iusta_session_v2";
+
+function readSession(): { userId: string; passwordHash: string } | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s?.user?.id || !s?.passwordHash) return null;
+    return { userId: s.user.id, passwordHash: s.passwordHash };
+  } catch {
+    return null;
+  }
+}
 
 export async function streamChat({
   messages,
@@ -23,14 +36,26 @@ export async function streamChat({
   onError: (error: string) => void;
 }) {
   try {
+    const session = readSession();
+    if (!session) {
+      onError("Sessione scaduta. Effettua di nuovo l'accesso.");
+      return;
+    }
     const resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        "x-iusta-user-id": session.userId,
+        "x-iusta-password-hash": session.passwordHash,
       },
       body: JSON.stringify({ messages, files }),
     });
+
+    if (resp.status === 401) {
+      onError("Non autorizzato. Effettua di nuovo l'accesso.");
+      return;
+    }
 
     if (resp.status === 429) {
       onError("Limite di richieste raggiunto. Riprova tra qualche momento.");
