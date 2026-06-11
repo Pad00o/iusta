@@ -4,10 +4,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-iusta-user-id, x-iusta-password-hash",
 };
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -23,7 +28,10 @@ serve(async (req) => {
     if (typeof patch.logo_url === "string" || patch.logo_url === null) allowed.logo_url = patch.logo_url;
     if (patch.pagano !== undefined) allowed.pagano = Number(patch.pagano) || 0;
     if (typeof patch.is_authorized === "boolean") allowed.is_authorized = patch.is_authorized;
-    if (typeof patch.password === "string" && patch.password) allowed.password_hash = patch.password;
+    if (typeof patch.password === "string" && patch.password) {
+      if (patch.password.length < 4 || patch.password.length > 256) return json({ error: "Password non valida" }, 400);
+      allowed.password_hash = await sha256Hex(patch.password);
+    }
 
     if (Object.keys(allowed).length === 0) return json({ error: "Nessuna modifica" }, 400);
 
