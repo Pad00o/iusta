@@ -13,7 +13,7 @@ import { QuickFollowupButtons } from "@/components/QuickFollowupButtons";
 import { VersionHistory } from "@/components/VersionHistory";
 import { ContradictionModal, type ContradictionData } from "@/components/ContradictionModal";
 import { SmartDraftingSidebar } from "@/components/SmartDraftingSidebar";
-import { ShareDialog } from "@/components/ShareDialog";
+
 
 interface ReportViewProps {
   messages: Message[];
@@ -115,25 +115,27 @@ export function ReportView({
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left index */}
-      <div className="hidden lg:flex w-56 flex-shrink-0 border-r border-border bg-card flex-col">
-        <div className="px-4 pt-4 pb-3">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Indice</h3>
+      <aside className="hidden lg:flex w-56 flex-shrink-0 border-r border-border bg-card flex-col h-full">
+        <div className="sticky top-0 max-h-full overflow-y-auto flex flex-col">
+          <div className="px-4 pt-4 pb-3">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Indice</h3>
+          </div>
+          <nav className="px-2 space-y-0.5 pb-4">
+            {sectionAnchors.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex items-center gap-2 text-[13px] text-muted-foreground hover:text-foreground w-full text-left px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors"
+              >
+                <s.icon className={`h-3.5 w-3.5 ${s.color} flex-shrink-0`} />
+                <span className="truncate">{s.label}</span>
+              </button>
+            ))}
+          </nav>
         </div>
-        <nav className="px-2 space-y-0.5 flex-1">
-          {sectionAnchors.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="flex items-center gap-2 text-[13px] text-muted-foreground hover:text-foreground w-full text-left px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors"
-            >
-              <s.icon className={`h-3.5 w-3.5 ${s.color} flex-shrink-0`} />
-              <span className="truncate">{s.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
+      </aside>
 
       {/* Main report content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -162,7 +164,6 @@ export function ReportView({
             {caseId && onRestoreVersion && (
               <VersionHistory caseId={caseId} onRestore={onRestoreVersion} />
             )}
-            {caseId && <ShareDialog caseId={caseId} />}
             <DownloadDialog
               onExportPdf={onExportPdf}
               markdown={reportMessage?.content || ""}
@@ -449,7 +450,7 @@ export function ReportView({
             titoloPratica={titoloPratica}
             caseId={caseId}
           />
-          {caseId && <ShareDialog caseId={caseId} />}
+          
         </div>
       )}
     </div>
