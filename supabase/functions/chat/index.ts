@@ -1,10 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-iusta-user-id, x-iusta-password-hash, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const MAX_PAYLOAD_BYTES = 12 * 1024 * 1024; // 12 MB total request body
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_CHARS = 200_000;
+const MAX_FILES = 10;
+
+async function verifyCaller(userId: string | null, passwordHash: string | null): Promise<boolean> {
+  if (!userId || !passwordHash) return false;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data } = await supabase
+      .from("app_users")
+      .select("id,password_hash")
+      .eq("id", userId)
+      .maybeSingle();
+    return !!data && data.password_hash === passwordHash;
+  } catch {
+    return false;
+  }
+}
 
 const SYSTEM_PROMPT = `# RUOLO
 Sei "IUSTA", un Senior Legal Analyst & Traffic Accident Reconstruction Expert specializzato in infortunistica stradale italiana (Codice della Strada, Italia 2026).
