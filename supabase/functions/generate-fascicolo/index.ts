@@ -39,14 +39,18 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    // Forward caller identity so the internal functions accept the request.
+    const callerHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceKey}`,
+      "x-iusta-user-id": req.headers.get("x-iusta-user-id") || "",
+      "x-iusta-password-hash": req.headers.get("x-iusta-password-hash") || "",
+    };
 
     // Generate PDF (forward white-label)
     const pdfRes = await fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+      headers: callerHeaders,
       body: JSON.stringify({ markdown, titoloPratica, studioName, studioLogo }),
     });
     if (!pdfRes.ok) throw new Error(`PDF generation failed: ${pdfRes.status}`);
@@ -55,7 +59,7 @@ serve(async (req) => {
     // Generate DOCX (forward white-label)
     const docxRes = await fetch(`${supabaseUrl}/functions/v1/generate-docx`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+      headers: callerHeaders,
       body: JSON.stringify({ markdown, titoloPratica, studioName, studioLogo }),
     });
     if (!docxRes.ok) throw new Error(`DOCX generation failed: ${docxRes.status}`);
