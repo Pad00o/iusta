@@ -393,6 +393,11 @@ async function buildPdf(
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    if (!(await verifyCaller(req))) {
+      return new Response(JSON.stringify({ error: "Non autorizzato" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const { markdown, titoloPratica, format, studioName, studioLogo } = await req.json();
     if (!markdown) {
       return new Response(JSON.stringify({ error: "No markdown" }), {
