@@ -38,7 +38,7 @@ interface Client {
 }
 
 const dialogContentCentered =
-  "sm:max-w-md glass-strong max-h-[85vh] overflow-y-auto top-1/2 -translate-y-1/2";
+  "sm:max-w-md glass-strong max-h-[85vh] overflow-y-auto";
 
 export default function Clienti() {
   const { user: admin, passwordHash } = useAuth();
@@ -477,7 +477,7 @@ export default function Clienti() {
       </Dialog>
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
-        <AlertDialogContent className="top-1/2 -translate-y-1/2">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare {toDelete?.studio}?</AlertDialogTitle>
             <AlertDialogDescription>

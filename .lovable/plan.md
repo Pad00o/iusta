@@ -1,110 +1,57 @@
-# Obiettivi
+## Goals
 
-1. White-label esteso a **tutti** i PDF/DOCX/Fascicolo (Analisi + Modelli) quando il toggle è attivo.
-2. Sync in tempo reale: aggiornamenti studio/logo visibili immediatamente sia all'admin (pagina Clienti) sia al cliente (Impostazioni).
-3. Permessi: solo admin può creare/eliminare clienti; ogni cliente vede solo i propri dati.
-4. Pulsante Condividi → modale centrata sempre funzionante (anche dal viewer/floating bar).
-5. Dialog "Nuovo cliente" centrato verticalmente sullo schermo.
+Fix five UI/UX issues and run a fresh SEO + security review.
 
 ---
 
-## 1. White-label su tutti i formati di export
+### 1. Center the "Nuovo cliente" / "Modifica cliente" dialog
 
-**Frontend — `DownloadDialog.tsx`**
-- Leggere `user` da `useAuth()` e inviare `studioName` + `studioLogo` (solo se `user.is_authorized`) a `generate-docx` e `generate-fascicolo`, esattamente come già avviene per `generate-pdf`.
+In `src/pages/Clienti.tsx` the constant `dialogContentCentered` adds `top-1/2 -translate-y-1/2 max-h-[85vh]`. The shadcn `DialogContent` already centers via `top-[50%] translate-y-[-50%]`, but the override + `max-h-[85vh]` interaction is pushing the card down on tall viewports.
 
-**Edge function — `generate-docx/index.ts`**
-- Accettare `studioName`, `studioLogo` nel body.
-- Sostituire header/footer del file DOCX con `studioName` quando presente; inserire il logo come immagine inline nell'header.
+- Simplify `dialogContentCentered` to just `sm:max-w-md glass-strong max-h-[85vh] overflow-y-auto` (let the base Dialog handle vertical centering).
+- Apply the same fix to the AlertDialog used for delete confirmation (remove the manual `top-1/2 -translate-y-1/2`).
 
-**Edge function — `generate-fascicolo/index.ts`**
-- Inoltrare `studioName` e `studioLogo` nella chiamata interna a `generate-pdf` (oggi non lo fa).
-- Rinominare la cartella interna dello zip in `{Studio || "IUSTA"}_Fascicolo/`.
+### 2. Remove the broken "Condividi" feature
 
-**Modelli (`Modelli.tsx`)** — già passa i campi a `generate-pdf`. Verificare che funzioni anche dopo il fix (nessuna modifica funzionale prevista).
+- Remove the `<ShareDialog />` usages from `src/components/ReportView.tsx` (header at line 165 and the duplicate at line 452).
+- Delete `src/components/ShareDialog.tsx` and the `create-share` edge function references in the frontend imports.
+- Leave the `shared_reports` table and edge function in place server-side (no DB migration needed). Just remove all UI entry points.
 
----
+### 3. Clean up the "Scarica" dropdown wording
 
-## 2. Sync admin ↔ cliente in tempo reale
+- Interpreting "remove the word function in the scarica function" as: remove the residual share-related copy near the Scarica button. After step 2 there should be no "Condividi" mentions next to it. Re-check `DownloadDialog.tsx` and surrounding header to confirm no leftover labels.
+- If you meant something different (e.g. rename a specific item inside the Scarica dropdown), I'll need a screenshot — I'll ask before editing copy.
 
-**`Clienti.tsx`**
-- Aggiungere un dialog "Modifica cliente" (icona matita su ogni `ClientCard`) per cambiare `studio`, `pagano`, `logo_url` direttamente dall'admin.
-- Sottoscrizione realtime alla tabella `app_users` (`supabase.channel('app_users').on('postgres_changes', ...)`) per riflettere modifiche fatte dai clienti in Impostazioni.
+### 4. Keep the "INDICE" sidebar visible while scrolling the analysis
 
-**`AuthContext.tsx` / `Settings.tsx`**
-- In `Settings.tsx` aggiungere una sottoscrizione realtime sulla **propria** riga `app_users` (filter `id=eq.<user.id>`): a ogni `UPDATE` chiamare `refreshUser()` così l'utente vede in pochi secondi le modifiche fatte dall'admin (es. nuovo nome studio, toggle white-label).
-- All'avvio di `Settings.tsx` invocare `refreshUser()` per partire sempre dai dati freschi del DB.
+In `src/components/ReportView.tsx` the left index (`hidden lg:flex w-56 …`) currently sits next to the scrolling `ScrollArea`. On some viewports/zoom levels the nav itself can scroll off because the parent layout collapses.
 
----
+- Make the nav explicitly sticky: wrap `<nav>` content with `sticky top-0 self-start max-h-[calc(100vh-3rem)] overflow-y-auto` and ensure the outer column is `h-full`.
+- Add `scroll-mt-20` on each section anchor so clicking a title doesn't hide it under the report header.
 
-## 3. Permessi rigorosi (admin-only operations)
+### 5. SEO review
 
-**Migration RLS su `app_users`**
-- Sostituire la policy permissiva attuale (`Allow all access … using:true check:true`) con:
-  - `SELECT`: ogni utente può leggere solo la riga con `id = current_setting('request.headers')::json->>'x-iusta-user-id'`. Admin (verificato via funzione `public.is_iusta_admin(uuid)` `SECURITY DEFINER`) può leggere tutto.
-  - `INSERT` / `DELETE`: solo se `public.is_iusta_admin(<header user id>)` è true.
-  - `UPDATE`: cliente può aggiornare solo la propria riga e solo i campi non sensibili (`studio`, `logo_url`); admin può aggiornare tutto.
-  - `GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_users TO anon, authenticated; GRANT ALL TO service_role;` (necessario perché il client non passa per `auth.users`).
-- Funzione `public.is_iusta_admin(_id uuid)` security-definer che ritorna `true` se quella riga ha `is_admin=true`.
+- Verify `index.html`: single `<h1>`, `<title>` under 60 chars with primary keyword (e.g. "IUSTA — Analisi infortunistica stradale"), `meta description` under 160 chars, `og:` + `twitter:` tags, canonical link, viewport meta, favicon, JSON-LD `SoftwareApplication`.
+- Add `alt` attributes to any logo/image without them.
+- Trigger an SEO scan via the SEO tool and surface results; only patch issues it flags.
 
-**Client — header automatico**
-- In `src/integrations/supabase/client.ts` **non si può modificare** (auto-gen). Soluzione: nuovo helper `src/lib/supa.ts` che esporta `withUser(supabase)` aggiungendo l'header `x-iusta-user-id` via `supabase.rest.headers` su ogni richiesta dopo il login (impostato in `AuthContext` quando l'utente entra; rimosso al logout).
-- In alternativa più semplice e robusta: spostare le operazioni admin-only (`insertUser`, `deleteUser`, `toggleAuth`, `updateClient`) dietro a 4 nuove edge function (`admin-create-user`, `admin-delete-user`, `admin-update-user`, `admin-toggle-auth`) che ricevono `{adminId, adminPasswordHash}` e verificano contro `app_users` prima di eseguire con `service_role`. Le RLS bloccano qualunque tentativo dal client.
+### 6. Security review
 
-> **Approccio scelto: edge functions admin-only + RLS strette.** È l'unica soluzione realmente sicura senza Supabase Auth.
-
-**Refactor frontend**
-- `Clienti.tsx`: sostituire le chiamate `supabase.from("app_users").insert/delete/update` con `supabase.functions.invoke("admin-*", { body: { adminId, adminPasswordHash, ... } })`.
-- `Settings.tsx`: l'update studio/logo del proprio profilo passa per una nuova `self-update-user` (riceve `userId + passwordHash` come prova di identità, aggiorna solo la propria riga).
-- `AuthContext.login`: passare a edge function `auth-login` che ritorna i dati pubblici dell'utente, senza esporre `password_hash` al client (rimuovere uso diretto di `select * from app_users`).
+- Re-run the security scan. The two outstanding scanner warnings (`SUPA_public_bucket_allows_listing`, `SUPA_rls_policy_always_true`) are already documented in security memory as intentional for this app's custom-auth architecture (server-side `verifyCaller` on edge functions, public buckets for share-link previews and white-label logos with anonymous write/delete removed).
+- If the rescan surfaces anything new, fix it; otherwise reaffirm the existing decisions and update security memory if posture changed.
 
 ---
 
-## 4. Fix pulsante Condividi e modale centrata
+### Files touched (build phase)
 
-**Diagnosi**
-- `ShareDialog` viene renderizzato **due volte** in `ReportView.tsx` (header + floating bar). Avere due `Dialog` indipendenti con lo stesso stato interno non crea conflitti, ma il `DialogTrigger asChild` con un bottone custom dentro la floating bar (z-index alto, `pointer-events`) può intercettare male il click.
+- `src/pages/Clienti.tsx` — dialog centering
+- `src/components/ReportView.tsx` — remove ShareDialog, sticky INDICE
+- `src/components/ShareDialog.tsx` — delete file
+- `index.html` (and `src/main.tsx` if needed) — SEO meta tweaks based on scan
+- Possibly `mem://` security memory update after rescan
 
-**Fix**
-- Convertire `ShareDialog` in componente **controllato** (`open` / `onOpenChange` come prop opzionali) con un metodo `openShareDialog(caseId)` esposto via un context leggero (`ShareContext`) montato in `ReportView`. Header e floating bar invocano lo stesso dialog singleton centrato.
-- `DialogContent`: forzare `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]` e `max-h-[90vh] overflow-y-auto`.
-- Verifica click: rimuovere eventuali `e.stopPropagation()` nei wrapper della floating bar.
+No database migrations, no edge-function changes.
 
----
+### One open question
 
-## 5. Modale "Nuovo cliente" centrata
-
-**`Clienti.tsx`**
-- Aggiungere a `DialogContent` le classi: `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] overflow-y-auto sm:max-w-md`.
-- Rimuovere qualsiasi `mt-*` ereditato dal contenitore padre. (Il problema attuale è che il dialog eredita stile `top-[50%]` ma il body ha scroll → appare in basso quando la pagina è scrollata. Forzando `fixed` centra rispetto al viewport.)
-- Applicare lo stesso fix alla modale "Modifica cliente" (nuova) e a `AlertDialog` di eliminazione.
-
----
-
-## File toccati
-
-**Nuovi**
-- `supabase/migrations/<ts>_app_users_rls_strict.sql` (RLS + `is_iusta_admin`)
-- `supabase/functions/admin-create-user/index.ts`
-- `supabase/functions/admin-delete-user/index.ts`
-- `supabase/functions/admin-update-user/index.ts`
-- `supabase/functions/admin-toggle-auth/index.ts`
-- `supabase/functions/auth-login/index.ts`
-- `supabase/functions/self-update-user/index.ts`
-- `src/components/EditClientDialog.tsx`
-- `src/contexts/ShareContext.tsx`
-
-**Modificati**
-- `src/components/DownloadDialog.tsx` (white-label su DOCX/ZIP)
-- `src/components/ShareDialog.tsx` (controllato, centratura forzata)
-- `src/components/ReportView.tsx` (ShareContext, singleton dialog)
-- `src/pages/Clienti.tsx` (edge functions, realtime, dialog centrato, edit dialog)
-- `src/pages/Settings.tsx` (realtime su propria riga, self-update via function)
-- `src/contexts/AuthContext.tsx` (login via edge function, niente password_hash nel client)
-- `supabase/functions/generate-docx/index.ts` (header studio + logo)
-- `supabase/functions/generate-fascicolo/index.ts` (forward white-label + naming)
-
-## Out of scope
-- Reset password / cambio username
-- Migrazione a Supabase Auth reale (richiederebbe rewrite)
-- Cambio password dall'interfaccia (può essere aggiunto in un secondo step)
+Could you confirm what "remove the word function in the scarica function" means? My best guess is "make sure no Condividi/Share label remains near the Scarica button after step 2." If you actually want a specific label inside the dropdown renamed (PDF / Word / Fascicolo), tell me which one.
