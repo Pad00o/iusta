@@ -30,7 +30,6 @@ export function DownloadDialog({
   caseId,
 }: DownloadDialogProps) {
   const [loadingPdf, setLoadingPdf] = useState(false);
-  const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
   const { user } = useAuth();
 
