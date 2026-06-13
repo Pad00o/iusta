@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Package, Loader2, FileType2 } from "lucide-react";
+import { Download, FileText, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { invokeAuthed } from "@/lib/authed-invoke";
 import { triggerDownload, buildReportFilename } from "@/lib/download";
