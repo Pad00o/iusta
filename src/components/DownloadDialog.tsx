@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Package, Loader2, FileType2 } from "lucide-react";
+import { Download, FileText, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { invokeAuthed } from "@/lib/authed-invoke";
 import { triggerDownload, buildReportFilename } from "@/lib/download";
@@ -30,7 +30,6 @@ export function DownloadDialog({
   caseId,
 }: DownloadDialogProps) {
   const [loadingPdf, setLoadingPdf] = useState(false);
-  const [loadingDocx, setLoadingDocx] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
   const { user } = useAuth();
 
@@ -46,28 +45,6 @@ export function DownloadDialog({
       toast.error("Errore generazione PDF", { description: e?.message });
     } finally {
       setLoadingPdf(false);
-    }
-  };
-
-  const handleDocx = async () => {
-    setLoadingDocx(true);
-    try {
-      const { data, error } = await invokeAuthed("generate-docx", {
-        body: { markdown, titoloPratica, studioName, studioLogo },
-      });
-      if (error) throw error;
-      const blob = data instanceof Blob
-        ? data
-        : new Blob([data as any], {
-            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          });
-      triggerDownload(blob, buildReportFilename(titoloPratica, "docx"));
-      toast.success("Word generato", { description: "Download avviato." });
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Errore generazione Word", { description: e?.message });
-    } finally {
-      setLoadingDocx(false);
     }
   };
 
@@ -91,7 +68,7 @@ export function DownloadDialog({
     }
   };
 
-  const anyLoading = loadingPdf || loadingDocx || loadingZip;
+  const anyLoading = loadingPdf || loadingZip;
 
   return (
     <DropdownMenu>
@@ -133,26 +110,6 @@ export function DownloadDialog({
             <div className="text-sm font-semibold text-foreground">PDF Professionale</div>
             <div className="text-[11px] text-muted-foreground truncate">
               Documento formattato pronto per la stampa
-            </div>
-          </div>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          disabled={loadingDocx}
-          onSelect={(e) => { e.preventDefault(); handleDocx(); }}
-          className="liquid-action rounded-xl p-3 cursor-pointer focus:bg-primary/10 gap-3"
-        >
-          <div className="h-9 w-9 rounded-xl icon-glass flex items-center justify-center flex-shrink-0">
-            {loadingDocx ? (
-              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-            ) : (
-              <FileType2 className="h-4 w-4 text-blue-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-foreground">Word (.docx)</div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              Modificabile in Microsoft Word o Google Docs
             </div>
           </div>
         </DropdownMenuItem>

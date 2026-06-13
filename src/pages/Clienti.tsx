@@ -38,7 +38,7 @@ interface Client {
 }
 
 const dialogContentCentered =
-  "sm:max-w-md glass-strong max-h-[85vh] overflow-y-auto";
+  "sm:max-w-md glass-strong max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0 data-[state=closed]:slide-out-to-top-0 data-[state=open]:slide-in-from-top-0";
 
 export default function Clienti() {
   const { user: admin, passwordHash } = useAuth();
