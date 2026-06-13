@@ -137,26 +137,6 @@ export function DownloadDialog({
           </div>
         </DropdownMenuItem>
 
-        <DropdownMenuItem
-          disabled={loadingDocx}
-          onSelect={(e) => { e.preventDefault(); handleDocx(); }}
-          className="liquid-action rounded-xl p-3 cursor-pointer focus:bg-primary/10 gap-3"
-        >
-          <div className="h-9 w-9 rounded-xl icon-glass flex items-center justify-center flex-shrink-0">
-            {loadingDocx ? (
-              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-            ) : (
-              <FileType2 className="h-4 w-4 text-blue-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-foreground">Word (.docx)</div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              Modificabile in Microsoft Word o Google Docs
-            </div>
-          </div>
-        </DropdownMenuItem>
-
         <DropdownMenuSeparator className="my-1 bg-white/10" />
 
         <DropdownMenuItem
