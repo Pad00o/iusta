@@ -48,28 +48,6 @@ export function DownloadDialog({
     }
   };
 
-  const handleDocx = async () => {
-    setLoadingDocx(true);
-    try {
-      const { data, error } = await invokeAuthed("generate-docx", {
-        body: { markdown, titoloPratica, studioName, studioLogo },
-      });
-      if (error) throw error;
-      const blob = data instanceof Blob
-        ? data
-        : new Blob([data as any], {
-            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          });
-      triggerDownload(blob, buildReportFilename(titoloPratica, "docx"));
-      toast.success("Word generato", { description: "Download avviato." });
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Errore generazione Word", { description: e?.message });
-    } finally {
-      setLoadingDocx(false);
-    }
-  };
-
   const handleZip = async () => {
     setLoadingZip(true);
     try {
@@ -90,7 +68,7 @@ export function DownloadDialog({
     }
   };
 
-  const anyLoading = loadingPdf || loadingDocx || loadingZip;
+  const anyLoading = loadingPdf || loadingZip;
 
   return (
     <DropdownMenu>
